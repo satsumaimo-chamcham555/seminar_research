@@ -43,18 +43,10 @@ public class PlayerMovement : MonoBehaviour
         controller.Move(move * currentSpeed * Time.deltaTime);
 
         // ジャンプ・浮遊処理
+        // 地上にいるか、または空中でのジャンプ入力で浮遊（連打で上昇）
         if (Input.GetButtonDown("Jump"))
         {
-            if (isGrounded)
-            {
-                // 地面にいる時の通常ジャンプ
-                velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
-            }
-            else if (isInSlowZone)
-            {
-                // 遅くなる現象の最中かつ空中にいる時、連打でさらに上に浮く！
-                velocity.y += floatForce;
-            }
+            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
         // 重力の適用
