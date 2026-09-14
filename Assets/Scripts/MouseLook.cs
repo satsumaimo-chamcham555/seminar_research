@@ -22,10 +22,14 @@ public class MouseLook : MonoBehaviour
 
     void Update()
     {
-        // 視線チェック（敵 ＆ 鏡）
-        CheckRaycast();
+        if (isChatActive || !enabled)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            return;
+        }
 
-        if (isChatActive) return;
+        CheckRaycast();
 
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
@@ -34,7 +38,10 @@ public class MouseLook : MonoBehaviour
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
 
         transform.localRotation = Quaternion.Euler(xRotation, 0f, 0f);
-        playerBody.Rotate(Vector3.up * mouseX);
+        if (playerBody != null)
+        {
+            playerBody.Rotate(Vector3.up * mouseX);
+        }
     }
 
     void CheckRaycast()
@@ -44,13 +51,17 @@ public class MouseLook : MonoBehaviour
 
         bool lookingAtMirrorThisFrame = false;
 
-        // 20メートル以内の判定
+        // 50メートル以内の判定
         if (Physics.Raycast(ray, out hit, 50.0f))
         {
             // 1. 敵（InvisibleEnemy）判定
             InvisibleEnemy enemy = hit.collider.GetComponent<InvisibleEnemy>();
             if (enemy != null)
             {
+                if (currentEnemy != enemy && currentEnemy != null)
+                {
+                    currentEnemy.SetLookedAt(false);
+                }
                 currentEnemy = enemy;
                 currentEnemy.SetLookedAt(true);
             }
@@ -75,7 +86,6 @@ public class MouseLook : MonoBehaviour
             }
         }
 
-        // プレイヤーの鏡フラグを更新
         if (playerMovement != null)
         {
             playerMovement.isLookingAtMirror = lookingAtMirrorThisFrame;

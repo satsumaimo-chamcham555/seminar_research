@@ -13,6 +13,10 @@ public class NoisePuzzleManager : MonoBehaviour
     public AudioSource noiseAudio;
     public GameObject letterKi;
 
+    [Header("プレイヤー参照（操作停止用）")]
+    public MouseLook mouseLook;           // ★追加：MouseLookをアタッチ
+    public PlayerMovement playerMovement; // ★追加：PlayerMovementをアタッチ
+
     [Header("ノイズの上昇設定")]
     public float maxVolume = 1.0f;       
     public float fadeDuration = 90.0f;   
@@ -37,6 +41,10 @@ public class NoisePuzzleManager : MonoBehaviour
             retryButton.onClick.RemoveAllListeners();
             retryButton.onClick.AddListener(RestartScene);
         }
+
+        // 参照が未設定の場合は自動取得
+        if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
+        if (playerMovement == null) playerMovement = FindObjectOfType<PlayerMovement>();
     }
 
     void Update()
@@ -44,7 +52,7 @@ public class NoisePuzzleManager : MonoBehaviour
         // ゲームオーバーパネルが表示されている時はポーズなどの入力を受け付けない
         if (gameOverPanel != null && gameOverPanel.activeSelf) return;
 
-        // Escキーによるポーズ画面の開閉処理
+        // ★Escキーによるポーズ画面の開閉処理（プレイヤーとカメラを完全制御）
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (pausePanel != null)
@@ -52,15 +60,31 @@ public class NoisePuzzleManager : MonoBehaviour
                 bool isActive = !pausePanel.activeSelf;
                 pausePanel.SetActive(isActive);
 
-                Cursor.lockState = isActive ? CursorLockMode.None : CursorLockMode.Locked;
-                Cursor.visible = isActive;
+                if (isActive)
+                {
+                    // ポーズ開く：操作を一時停止＆カーソル表示
+                    if (mouseLook != null) mouseLook.isChatActive = true;
+                    if (playerMovement != null) playerMovement.canMove = false;
+
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+                else
+                {
+                    // ポーズ閉じる：操作を再開＆カーソルロック
+                    if (mouseLook != null) mouseLook.isChatActive = false;
+                    if (playerMovement != null) playerMovement.canMove = true;
+
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
+                }
             }
         }
 
         if (isSolved) return;
 
-        // 音量スライダーが0になったらクリア判定
-        if (pausePanel != null && pausePanel.activeSelf && volumeSlider != null)
+        // ノイズ演出が開始している（isIncreasing == true）ときだけ音量0クリア判定を行う
+        if (isIncreasing && pausePanel != null && pausePanel.activeSelf && volumeSlider != null)
         {
             if (volumeSlider.value <= 0.001f)
             {
@@ -143,30 +167,31 @@ public class NoisePuzzleManager : MonoBehaviour
         }
     }
 
-void GameOver()
-{
-    Debug.Log("【GAME OVER】ノイズの限界に達しました。");
-
-    // ★ゲームオーバー時にノイズ音を停止する
-    if (noiseAudio != null)
+    void GameOver()
     {
-        noiseAudio.Stop();
-        noiseAudio.pitch = 1.0f; // ピッチも元に戻す
+        Debug.Log("【GAME OVER】ノイズの限界に達しました。");
+
+        if (noiseAudio != null)
+        {
+            noiseAudio.Stop();
+            noiseAudio.pitch = 1.0f;
+        }
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
+        // ゲームオーバー時も操作を停止
+        if (mouseLook != null) mouseLook.isChatActive = true;
+        if (playerMovement != null) playerMovement.canMove = false;
     }
 
-    if (gameOverPanel != null)
-    {
-        gameOverPanel.SetActive(true);
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-    }
-}
-
-
-   // リトライ処理
+    // リトライ処理
     public void RestartScene()
     {
-        // ★追加：リトライ時に文字の獲得カウントをリセット
         LetterItem.totalCollected = 0;
 
         Cursor.lockState = CursorLockMode.Locked;
@@ -175,7 +200,6 @@ void GameOver()
         Scene currentScene = SceneManager.GetActiveScene();
         SceneManager.LoadScene(currentScene.name);
     }
-
 
     void SolvePuzzle()
     {
@@ -189,7 +213,16 @@ void GameOver()
         }
         if (letterKi != null) letterKi.SetActive(true);
 
-        //ShowSubtitle("「……音が消えた。何か落ちてきたみたいだ」", 4.0f);
+        // ★パズル解決時にポーズ画面が開いていたら閉じて操作復帰させる
+        if (pausePanel != null && pausePanel.activeSelf)
+        {
+            pausePanel.SetActive(false);
+            if (mouseLook != null) mouseLook.isChatActive = false;
+            if (playerMovement != null) playerMovement.canMove = true;
+
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
 
         Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
     }

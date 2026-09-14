@@ -12,7 +12,10 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -9.81f;
 
     [Header("操作可否フラグ")]
-    public bool canMove = true; // ★追加：外部から移動を停止させるフラグ
+    public bool canMove = true; 
+
+    [Header("消去対象のエリア設定")]
+    public GameObject slowZoneObject; // ★InspectorでSlowZoneのゲームオブジェクトをアタッチ（未設定でも自動検知します）
 
     [Header("デバッグ表示")]
     public bool isInSlowZone = false;
@@ -22,6 +25,7 @@ public class PlayerMovement : MonoBehaviour
     private bool hasShownSlowText = false;
     private bool hasShownMirrorText = false;
     private bool hasShownAirJumpText = false;
+    private bool hasShownGoalSlowText = false;
 
     private CharacterController controller;
     private Vector3 velocity;
@@ -34,26 +38,24 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
-        // ★重要：canMove が false の時は一切の操作と移動（重力適用除く）を停止する
-        if (!canMove)
+        // ★操作不能フラグが立っている場合、移動もジャンプも1ミリも処理させない
+    if (!canMove || !enabled)
+    {
+        // 空中にいる場合の最低限の重力落下のみ適用（着地していれば何もしない）
+        if (controller != null && !controller.isGrounded)
         {
-            // 空中にいる場合は最低限の重力だけ落とす
-            if (!controller.isGrounded)
-            {
-                velocity.y += gravity * Time.deltaTime;
-                controller.Move(velocity * Time.deltaTime);
-            }
-            return;
+            velocity.y += gravity * Time.deltaTime;
+            controller.Move(velocity * Time.deltaTime);
         }
+        return; // ★ここで処理を完全遮断！WASDやジャンプの処理へ行かせない
+    }
 
-        // 地下にいる時は落下速度とジャンプ回数をリセット
         if (controller.isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
             jumpCount = 0;
         }
 
-        // 移動速度の決定
         float currentSpeed = moveSpeed;
 
         if (isInSlowZone)
@@ -74,13 +76,11 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        // WASD移動
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
         Vector3 move = transform.right * x + transform.forward * z;
         controller.Move(move * currentSpeed * Time.deltaTime);
 
-        // ジャンプ処理
         if (Input.GetButtonDown("Jump"))
         {
             jumpCount++;
@@ -97,7 +97,6 @@ public class PlayerMovement : MonoBehaviour
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
-        // 重力適用
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
@@ -112,6 +111,31 @@ public class PlayerMovement : MonoBehaviour
             {
                 hasShownSlowText = true;
                 SubtitleManager.Instance.ShowSubtitle("「うっ……！？ 急に体が重い……歩きにくい……」", 4.0f);
+            }
+        }
+        else if (other.CompareTag("GoalSlowZone"))
+        {
+            isInSlowZone = false; 
+
+            // ★追加：SlowZoneオブジェクト自体を非アクティブ化して消去
+            if (slowZoneObject != null)
+            {
+                slowZoneObject.SetActive(false);
+            }
+            else
+            {
+                // Inspectorでアタッチしていない場合はTagから自動検索してオフにする
+                GameObject foundSlowZone = GameObject.FindWithTag("SlowZone");
+                if (foundSlowZone != null)
+                {
+                    foundSlowZone.SetActive(false);
+                }
+            }
+
+            if (!hasShownGoalSlowText && SubtitleManager.Instance != null)
+            {
+                hasShownGoalSlowText = true;
+                SubtitleManager.Instance.ShowSubtitle("「……？ 普通に歩けるようになった……？」", 4.0f);
             }
         }
     }

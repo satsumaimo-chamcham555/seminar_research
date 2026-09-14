@@ -15,12 +15,14 @@ public class InvisibleEnemy : MonoBehaviour
     public bool isChasing = false;     // 追撃中か
     public bool isLookedAt = false;    // プレイヤーに見られているか
 
+    // ★セリフ制御用の変数
+    private int lookCount = 0;          // 視線で捉えた回数
+    private bool hasShownLookOff = false; // 「目を逸らした時」のセリフを出したか
+
     void Start()
     {
         if (letterRo != null) letterRo.SetActive(false);
         if (footstepAudio != null) footstepAudio.Stop();
-
-        // ※テスト自動起動（StartChasing）は削除しました
     }
 
     void Update()
@@ -52,10 +54,41 @@ public class InvisibleEnemy : MonoBehaviour
         }
     }
 
-    // カメラ（MouseLook）側から「見ている/見ていない」を切り替える関数
+    // ★カメラ（MouseLook）側から「見ている/見ていない」を切り替える関数（セリフ判定追加）
     public void SetLookedAt(bool state)
     {
-        isLookedAt = state;
+        // 追撃中でない場合はセリフ判定を行わない
+        if (!isChasing) return;
+
+        // 状態が変わった時だけ判定を行う
+        if (isLookedAt != state)
+        {
+            isLookedAt = state;
+
+            if (isLookedAt)
+            {
+                // 【視線が当たった瞬間】
+                lookCount++;
+
+                if (lookCount == 1)
+                {
+                    ShowSubtitle("「……？ 足音が止まった……？」", 3.5f);
+                }
+                else if (lookCount == 2)
+                {
+                    ShowSubtitle("「こっちの方にいるのか……？ 見えていないが、見ている間は動かない……のか？」", 5.0f);
+                }
+            }
+            else
+            {
+                // 【視線が外れた瞬間】
+                if (lookCount == 1 && !hasShownLookOff)
+                {
+                    hasShownLookOff = true;
+                    ShowSubtitle("「違う、まだいる……！ なんでさっきは一瞬止まったんだ……？」", 4.5f);
+                }
+            }
+        }
     }
 
     // エリア侵入で呼び出す追撃開始関数
@@ -81,10 +114,8 @@ public class InvisibleEnemy : MonoBehaviour
         if (footstepAudio != null) footstepAudio.Stop();
         if (letterRo != null) letterRo.SetActive(true);
 
-        if (SubtitleManager.Instance != null)
-        {
-            //SubtitleManager.Instance.ShowSubtitle("「……足音が消えた。何か落ちてきたみたいだ」", 4.0f);
-        }
+        // ★ゴールゾーン到達時のセリフ
+        ShowSubtitle("「……いなくなった気がする。」", 4.0f);
 
         Debug.Log("【3つ目の謎クリア】敵が消滅し、『ろ』が出現！");
     }
@@ -109,6 +140,14 @@ public class InvisibleEnemy : MonoBehaviour
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
+        }
+    }
+
+    void ShowSubtitle(string text, float duration)
+    {
+        if (SubtitleManager.Instance != null)
+        {
+            SubtitleManager.Instance.ShowSubtitle(text, duration);
         }
     }
 }

@@ -28,14 +28,13 @@ public class GameClearManager : MonoBehaviour
     private bool isChatOpen = false;
 
     private float chatOpenTimer = 0f;
-    private const float INPUT_BLOCK_DURATION = 0.5f; // 0.5秒ガード
+    private const float INPUT_BLOCK_DURATION = 0.3f; // 開いた直後の誤作動防止ガード時間
 
     void Start()
     {
         if (chatInputField != null)
         {
             chatInputField.gameObject.SetActive(false);
-            chatInputField.onValueChanged.AddListener(OnTextChanged);
         }
     }
 
@@ -43,80 +42,107 @@ public class GameClearManager : MonoBehaviour
     {
         if (isClearing) return;
 
-        // ★チャットが開いている間の強固なキーブロック処理
+        // ★1. チャットが開いている時の処理
         if (isChatOpen)
         {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
             if (chatOpenTimer > 0)
             {
-                chatOpenTimer -= Time.deltaTime;
+                chatOpenTimer -= Time.unscaledDeltaTime;
+                return; // ガード時間中は一切の判定を行わない
             }
 
-            // スペースキーや矢印キーが押されてもUIフォーカスを奪わせない
-            if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.UpArrow) || 
-                Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow))
+            // 【Escキー】または【テンキーのEnter/MainのEnter】が押された時の判定
+            if (Input.GetKeyDown(KeyCode.Escape))
             {
-                // チャット入力欄へのフォーカスを強制維持
-                if (chatInputField != null && !chatInputField.isFocused)
-                {
-                    chatInputField.ActivateInputField();
-                }
+                CloseChat();
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                CheckAndSubmit();
+                return;
+            }
+
+            // UIのフォーカスを維持
+            if (chatInputField != null && !chatInputField.isFocused)
+            {
+                chatInputField.ActivateInputField();
             }
             return;
         }
 
-        // Enterキーで手動起動する場合
+        // ★2. チャットが開いていない時：Enterキーで手動起動
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
             OpenChat();
         }
     }
 
+    // ★Enterキーが押された時の入力判定処理
+    void CheckAndSubmit()
+    {
+        if (chatInputField == null) return;
+
+        string trimmedText = chatInputField.text.Trim();
+
+        // 正解チェック
+        if (trimmedText == "おきろ" || trimmedText == "オキロ" || trimmedText == "okiro")
+        {
+            inputCount++;
+            chatInputField.text = "";
+            ProcessPhase(inputCount);
+        }
+        else
+        {
+            // 不正解・空文字の場合は確定でチャットを閉じてゲームへ復帰
+            CloseChat();
+        }
+    }
+
+    // ★チャットを開く
     public void OpenChat()
     {
         isChatOpen = true;
         chatOpenTimer = INPUT_BLOCK_DURATION;
 
-        chatInputField.gameObject.SetActive(true);
-        chatInputField.text = "";
-        chatInputField.Select();
-        chatInputField.ActivateInputField();
+        if (mouseLook != null) mouseLook.isChatActive = true;
+        if (playerMovement != null) playerMovement.canMove = false;
 
-        // 視点移動を停止＆カーソル解放
-        if (mouseLook != null)
-        {
-            mouseLook.isChatActive = true;
-            mouseLook.LockCursor(false);
-            mouseLook.enabled = false;
-        }
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
-        // ★修正：PlayerMovementのフラグを直接折る
-        if (playerMovement != null)
+        if (chatInputField != null)
         {
-            playerMovement.canMove = false; // ★移動・ジャンプの操作を直接ロック
+            chatInputField.gameObject.SetActive(true);
+            chatInputField.text = "";
+            chatInputField.Select();
+            chatInputField.ActivateInputField();
         }
     }
 
-
-    void OnTextChanged(string text)
+    // ★チャットを完全に閉じ、ゲーム操作を100%復帰させる
+    public void CloseChat()
     {
-        if (isClearing) return;
+        isChatOpen = false;
 
-        // ディレイ時間中の入力は自動クリアして無視
-        if (chatOpenTimer > 0)
+        if (chatInputField != null)
         {
             chatInputField.text = "";
-            return;
+            chatInputField.DeactivateInputField(); // フォーカス解除
+            chatInputField.gameObject.SetActive(false); // 非表示
         }
 
-        string trimmedText = text.Trim();
+        // 操作の復帰
+        if (mouseLook != null) mouseLook.isChatActive = false;
+        if (playerMovement != null) playerMovement.canMove = true;
 
-        if (trimmedText == "おきろ" || trimmedText == "オキロ" || trimmedText == "okiro")
-        {
-            inputCount++;
-            chatInputField.text = "";
-            
-            ProcessPhase(inputCount);
-        }
+        // カーソルを完全にゲーム画面中央へ固定＆非表示
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     void ProcessPhase(int count)
@@ -168,20 +194,43 @@ public class GameClearManager : MonoBehaviour
     IEnumerator FinalPhaseSequence()
     {
         isClearing = true;
-        chatInputField.gameObject.SetActive(false);
+        isChatOpen = false;
+
+        if (chatInputField != null)
+        {
+            chatInputField.gameObject.SetActive(false);
+        }
 
         HideObjects(floorObjects);
 
-        if (playerController != null)
-        {
-            playerController.enabled = false;
-        }
+        Transform targetTransform = transform;
+        if (playerMovement != null) targetTransform = playerMovement.transform;
+        else if (playerController != null) targetTransform = playerController.transform;
+
+        Transform cameraTransform = mouseLook != null ? mouseLook.transform : null;
 
         ShowSubtitle("「おきろ！！！！！！！！！」", 4.0f);
-        yield return new WaitForSeconds(2.0f);
+
+        float fallSpeed = 5.0f;
+        float timer = 0f;
+
+        while (timer < 1.5f)
+        {
+            timer += Time.deltaTime;
+
+            fallSpeed += 30.0f * Time.deltaTime;
+            Vector3 fallVector = Vector3.down * fallSpeed * Time.deltaTime;
+
+            if (targetTransform != null) targetTransform.position += fallVector;
+            if (cameraTransform != null && cameraTransform != targetTransform && !cameraTransform.IsChildOf(targetTransform))
+            {
+                cameraTransform.position += fallVector;
+            }
+
+            yield return null;
+        }
 
         ShowSubtitle("「ああ、やっと....」", 4.0f);
-        yield return new WaitForSeconds(1.5f);
 
         float alpha = 0f;
         while (alpha < 1f)
@@ -194,9 +243,13 @@ public class GameClearManager : MonoBehaviour
                 whiteoutImage.color = color;
             }
 
-            if (playerController != null)
+            fallSpeed += 30.0f * Time.deltaTime;
+            Vector3 fallVector = Vector3.down * fallSpeed * Time.deltaTime;
+
+            if (targetTransform != null) targetTransform.position += fallVector;
+            if (cameraTransform != null && cameraTransform != targetTransform && !cameraTransform.IsChildOf(targetTransform))
             {
-                playerController.transform.position += Vector3.down * 15.0f * Time.deltaTime;
+                cameraTransform.position += fallVector;
             }
 
             yield return null;

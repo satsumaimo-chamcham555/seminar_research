@@ -69,15 +69,28 @@ public class LetterItem : MonoBehaviour
         ShowSubtitle("「だったら、起きればいい。」", 5.0f);
         yield return new WaitForSeconds(5.0f);
 
-        // ★GameClearManager経由でチャットを開く
+        // 未割り当ての場合はシーン上から自動検索
+        if (gameClearManager == null)
+        {
+            gameClearManager = FindObjectOfType<GameClearManager>();
+        }
+
+        // ★GameClearManager の OpenChat() を呼び出し
         if (gameClearManager != null)
         {
-            // メソッドを呼び出して入力状態まで完了させる
-            gameClearManager.SendMessage("OpenChat", SendMessageOptions.DontRequireReceiver);
+            gameClearManager.OpenChat();
         }
-        else if (chatPanel != null)
+        else
         {
-            chatPanel.SetActive(true);
+            // それでも見つからない場合のフォールバック（直接止める）
+            if (chatPanel != null) chatPanel.SetActive(true);
+
+            MouseLook mouse = FindObjectOfType<MouseLook>();
+            if (mouse != null) mouse.isChatActive = true;
+
+            PlayerMovement player = FindObjectOfType<PlayerMovement>();
+            if (player != null) player.canMove = false;
+
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
