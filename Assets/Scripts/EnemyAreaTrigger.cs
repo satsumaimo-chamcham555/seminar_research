@@ -10,25 +10,37 @@ public class EnemyAreaTrigger : MonoBehaviour
     [Header("敵の参照")]
     public InvisibleEnemy enemy;
 
-    // ★一度でも謎をクリアしたか管理するフラグ
-    private static bool isCleared = false;
+    // ★一度起動・クリアしたかを管理するフラグ（staticを解除）
+    private bool isTriggered = false;
 
     private void OnTriggerEnter(Collider other)
     {
-        // 既にクリア済みの場合は二度と発動しない
-        if (isCleared) return;
+        // 既に発動済みのトリガーなら何もしない
+        if (isTriggered) return;
 
         if (other.CompareTag("Player") && enemy != null)
         {
             if (triggerType == TriggerType.StartChasing)
             {
-                enemy.StartChasing();
+                // ★まだ敵が追撃していない場合のみ起動
+                if (!enemy.isChasing)
+                {
+                    isTriggered = true; // スタートゾーンは1回踏んだら無効化
+                    enemy.StartChasing();
+                }
             }
             else if (triggerType == TriggerType.Goal)
             {
-                // ゴール到達時にクリアフラグを立てる
-                isCleared = true;
-                enemy.DefeatEnemy();
+                // ★重要：敵が【追撃中】の時だけゴール判定を受け付ける
+                if (enemy.isChasing)
+                {
+                    isTriggered = true; // ゴール成立で無効化
+                    enemy.DefeatEnemy();
+                }
+                else
+                {
+                    Debug.Log("【ギミック】敵が追撃してきていないため、ゴール判定は無視されました。");
+                }
             }
         }
     }

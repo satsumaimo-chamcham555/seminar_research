@@ -163,15 +163,19 @@ void GameOver()
 }
 
 
-    // ★リトライ処理（カーソル設定を戻してからシーン再読み込み）
+   // リトライ処理
     public void RestartScene()
     {
+        // ★追加：リトライ時に文字の獲得カウントをリセット
+        LetterItem.totalCollected = 0;
+
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
         Scene currentScene = SceneManager.GetActiveScene();
         SceneManager.LoadScene(currentScene.name);
     }
+
 
     void SolvePuzzle()
     {
@@ -185,7 +189,7 @@ void GameOver()
         }
         if (letterKi != null) letterKi.SetActive(true);
 
-        ShowSubtitle("「……音が消えた。何か落ちてきたみたいだ」", 4.0f);
+        //ShowSubtitle("「……音が消えた。何か落ちてきたみたいだ」", 4.0f);
 
         Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
     }

@@ -6,6 +6,7 @@ TagManager:
   tags:
   - CinemachineTarget
   - SlowZone
+  - Mirror
   layers:
   - Default
   - TransparentFX

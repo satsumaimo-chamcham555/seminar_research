@@ -83,7 +83,7 @@ public class InvisibleEnemy : MonoBehaviour
 
         if (SubtitleManager.Instance != null)
         {
-            SubtitleManager.Instance.ShowSubtitle("「……足音が消えた。何か落ちてきたみたいだ」", 4.0f);
+            //SubtitleManager.Instance.ShowSubtitle("「……足音が消えた。何か落ちてきたみたいだ」", 4.0f);
         }
 
         Debug.Log("【3つ目の謎クリア】敵が消滅し、『ろ』が出現！");
