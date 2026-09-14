@@ -6,10 +6,13 @@ public class MouseLook : MonoBehaviour
     public Transform playerBody;
 
     private float xRotation = 0f;
-    public bool isChatActive = false; // チャット中かどうか
+    public bool isChatActive = false;
 
-    private InvisibleEnemy currentEnemy; // 現在検知中の敵の参照
-    private PlayerMovement playerMovement; // プレイヤーの移動スクリプト参照
+    private InvisibleEnemy currentEnemy;
+    private PlayerMovement playerMovement;
+
+    // ★鏡を見た時のセリフ用フラグ
+    private bool hasCommentedMirror = false;
 
     void Start()
     {
@@ -17,6 +20,10 @@ public class MouseLook : MonoBehaviour
         if (playerBody != null)
         {
             playerMovement = playerBody.GetComponent<PlayerMovement>();
+        }
+        if (playerMovement == null)
+        {
+            playerMovement = FindObjectOfType<PlayerMovement>();
         }
     }
 
@@ -51,10 +58,9 @@ public class MouseLook : MonoBehaviour
 
         bool lookingAtMirrorThisFrame = false;
 
-        // 50メートル以内の判定
         if (Physics.Raycast(ray, out hit, 50.0f))
         {
-            // 1. 敵（InvisibleEnemy）判定
+            // 1. 敵判定
             InvisibleEnemy enemy = hit.collider.GetComponent<InvisibleEnemy>();
             if (enemy != null)
             {
@@ -71,10 +77,20 @@ public class MouseLook : MonoBehaviour
                 currentEnemy = null;
             }
 
-            // 2. 鏡（Mirror）判定
+            // 2. 鏡（スローゾーン）判定
             if (hit.collider.CompareTag("Mirror"))
             {
                 lookingAtMirrorThisFrame = true;
+
+                // ★スローゾーン内で初めて鏡を見た時のセリフ演出
+                if (playerMovement != null && playerMovement.isInSlowZone && !hasCommentedMirror)
+                {
+                    hasCommentedMirror = true;
+                    if (SubtitleManager.Instance != null)
+                    {
+                        SubtitleManager.Instance.ShowSubtitle("「あれ……鏡を見ている間は普通に歩ける……？ なんでだ……？」", 4.5f);
+                    }
+                }
             }
         }
         else

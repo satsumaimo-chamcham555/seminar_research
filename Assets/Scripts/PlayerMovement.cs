@@ -1,150 +1,127 @@
 using UnityEngine;
 
-[RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
+    public CharacterController controller;
+
     [Header("移動設定")]
-    public float moveSpeed = 5.0f;
-    public float slowSpeed = 0.5f;
-
-    [Header("ジャンプ・重力設定")]
-    public float jumpHeight = 1.5f;
+    public float speed = 6f;              // 通常速度（鏡を見ている時 / ゾーン外）
+    public float slowSpeed = 3f;          // スロー速度（ゾーン内で鏡を見ていない時）
     public float gravity = -9.81f;
+    public float jumpHeight = 1.5f;
 
-    [Header("操作可否フラグ")]
-    public bool canMove = true; 
+    [Header("接地判定")]
+    public Transform groundCheck;
+    public float groundDistance = 0.4f;
+    public LayerMask groundMask;
 
-    [Header("消去対象のエリア設定")]
-    public GameObject slowZoneObject; // ★InspectorでSlowZoneのゲームオブジェクトをアタッチ（未設定でも自動検知します）
+    [Header("足音設定")]
+    public AudioSource footstepAudio;
+    public float stepInterval = 0.5f;
+    private float stepTimer = 0f;
 
-    [Header("デバッグ表示")]
-    public bool isInSlowZone = false;
-    public bool isLookingAtMirror = false;
+    [Header("状態フラグ")]
+    public bool isInSlowZone = false;     // ★追加：スローゾーンの中にいるか
+    public bool isLookingAtMirror = false; // 鏡を見ているか
+    public bool canMove = true;            // 移動可能か
 
-    // 字幕の重複表示を防ぐフラグ
-    private bool hasShownSlowText = false;
-    private bool hasShownMirrorText = false;
-    private bool hasShownAirJumpText = false;
-    private bool hasShownGoalSlowText = false;
-
-    private CharacterController controller;
-    private Vector3 velocity;
-    private int jumpCount = 0;
+    Vector3 velocity;
+    bool isGrounded;
 
     void Start()
     {
-        controller = GetComponent<CharacterController>();
+        if (controller == null)
+        {
+            controller = GetComponent<CharacterController>();
+        }
+
+        if (groundCheck == null)
+        {
+            groundCheck = transform;
+        }
+
+        if (footstepAudio != null)
+        {
+            footstepAudio.loop = false;
+        }
     }
 
     void Update()
     {
-        // ★操作不能フラグが立っている場合、移動もジャンプも1ミリも処理させない
-    if (!canMove || !enabled)
-    {
-        // 空中にいる場合の最低限の重力落下のみ適用（着地していれば何もしない）
-        if (controller != null && !controller.isGrounded)
-        {
-            velocity.y += gravity * Time.deltaTime;
-            controller.Move(velocity * Time.deltaTime);
-        }
-        return; // ★ここで処理を完全遮断！WASDやジャンプの処理へ行かせない
-    }
+        Transform checkTarget = groundCheck != null ? groundCheck : transform;
+        int mask = groundMask.value != 0 ? groundMask.value : -1;
+        isGrounded = Physics.CheckSphere(checkTarget.position, groundDistance, mask);
 
-        if (controller.isGrounded && velocity.y < 0)
+        if (isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
-            jumpCount = 0;
         }
 
-        float currentSpeed = moveSpeed;
-
-        if (isInSlowZone)
+        if (!canMove)
         {
-            if (isLookingAtMirror)
+            if (footstepAudio != null && footstepAudio.isPlaying)
             {
-                currentSpeed = moveSpeed;
-
-                if (!hasShownMirrorText && SubtitleManager.Instance != null)
-                {
-                    hasShownMirrorText = true;
-                    SubtitleManager.Instance.ShowSubtitle("「……あれ？ 鏡を見てると……普通に動ける？ なんで……？」", 4.0f);
-                }
+                footstepAudio.Stop();
             }
-            else
-            {
-                currentSpeed = slowSpeed;
-            }
+            return;
         }
 
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
+
         Vector3 move = transform.right * x + transform.forward * z;
-        controller.Move(move * currentSpeed * Time.deltaTime);
 
-        if (Input.GetButtonDown("Jump"))
+        // ★速度決定ロジック：
+        // 「スローゾーン内にいて」かつ「鏡を見ていない」時だけ減速（slowSpeed）
+        // それ以外（ゾーン外、またはゾーン内で鏡を見ている時）は通常速度（speed）
+        float currentSpeed = speed;
+        if (isInSlowZone && !isLookingAtMirror)
         {
-            jumpCount++;
+            currentSpeed = slowSpeed;
+        }
 
-            if (jumpCount >= 2)
-            {
-                if (!hasShownAirJumpText && SubtitleManager.Instance != null)
-                {
-                    hasShownAirJumpText = true;
-                    SubtitleManager.Instance.ShowSubtitle("「……空中でも蹴れる……！？ なんだこれ……夢だから……？」", 4.0f);
-                }
-            }
+        if (controller != null)
+        {
+            controller.Move(move * currentSpeed * Time.deltaTime);
+        }
 
+        HandleFootsteps(move.magnitude);
+
+        if (Input.GetButtonDown("Jump") && isGrounded)
+        {
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
         }
 
         velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
-    }
-
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("SlowZone"))
+        if (controller != null)
         {
-            isInSlowZone = true;
-
-            if (!hasShownSlowText && SubtitleManager.Instance != null)
-            {
-                hasShownSlowText = true;
-                SubtitleManager.Instance.ShowSubtitle("「うっ……！？ 急に体が重い……歩きにくい……」", 4.0f);
-            }
-        }
-        else if (other.CompareTag("GoalSlowZone"))
-        {
-            isInSlowZone = false; 
-
-            // ★追加：SlowZoneオブジェクト自体を非アクティブ化して消去
-            if (slowZoneObject != null)
-            {
-                slowZoneObject.SetActive(false);
-            }
-            else
-            {
-                // Inspectorでアタッチしていない場合はTagから自動検索してオフにする
-                GameObject foundSlowZone = GameObject.FindWithTag("SlowZone");
-                if (foundSlowZone != null)
-                {
-                    foundSlowZone.SetActive(false);
-                }
-            }
-
-            if (!hasShownGoalSlowText && SubtitleManager.Instance != null)
-            {
-                hasShownGoalSlowText = true;
-                SubtitleManager.Instance.ShowSubtitle("「……？ 普通に歩けるようになった……？」", 4.0f);
-            }
+            controller.Move(velocity * Time.deltaTime);
         }
     }
 
-    private void OnTriggerExit(Collider other)
+    void HandleFootsteps(float moveMagnitude)
     {
-        if (other.CompareTag("SlowZone"))
+        if (footstepAudio == null) return;
+
+        if (isGrounded && moveMagnitude > 0.1f)
         {
-            isInSlowZone = false;
+            stepTimer += Time.deltaTime;
+
+            if (stepTimer >= stepInterval)
+            {
+                footstepAudio.Stop();
+                footstepAudio.pitch = Random.Range(0.85f, 1.15f);
+                footstepAudio.Play();
+                stepTimer = 0f;
+            }
+        }
+        else
+        {
+            if (footstepAudio.isPlaying)
+            {
+                footstepAudio.Stop();
+            }
+            stepTimer = stepInterval;
         }
     }
 }
