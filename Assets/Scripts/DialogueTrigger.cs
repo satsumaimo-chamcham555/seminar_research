@@ -3,7 +3,7 @@ using UnityEngine;
 public class DialogueTrigger : MonoBehaviour
 {
     [Header("喋らせたいセリフ")]
-    public string message = "「体が……重い。進みにくいな……」";
+    public string message = "「うまく動けない……なんで？」";
     public float displayDuration = 4.0f;
     public bool triggerOnce = true;
 

@@ -28,7 +28,7 @@ public class GameClearManager : MonoBehaviour
     private bool isChatOpen = false;
 
     private float chatOpenTimer = 0f;
-    private const float INPUT_BLOCK_DURATION = 0.3f; // 開いた直後の誤作動防止ガード時間
+    private const float INPUT_BLOCK_DURATION = 0.2f; // 開いた直後の誤作動防止
 
     void Start()
     {
@@ -42,7 +42,7 @@ public class GameClearManager : MonoBehaviour
     {
         if (isClearing) return;
 
-        // ★1. チャットが開いている時の処理
+        // ★1. チャットが開いている時
         if (isChatOpen)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -51,59 +51,50 @@ public class GameClearManager : MonoBehaviour
             if (chatOpenTimer > 0)
             {
                 chatOpenTimer -= Time.unscaledDeltaTime;
-                return; // ガード時間中は一切の判定を行わない
+                return;
             }
 
-            // 【Escキー】または【テンキーのEnter/MainのEnter】が押された時の判定
+            // Escキーで手動キャンセル
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 CloseChat();
                 return;
             }
 
+            // ★Enterキー（メイン/テンキー）が押されたら文字判定を実行
             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
                 CheckAndSubmit();
-                return;
-            }
-
-            // UIのフォーカスを維持
-            if (chatInputField != null && !chatInputField.isFocused)
-            {
-                chatInputField.ActivateInputField();
             }
             return;
         }
 
-        // ★2. チャットが開いていない時：Enterキーで手動起動
+        // ★2. チャットが開いていない時：Enterキーで開く
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
             OpenChat();
         }
     }
 
-    // ★Enterキーが押された時の入力判定処理
-    void CheckAndSubmit()
+    // ★Enter入力時の直接判定メソッド
+    private void CheckAndSubmit()
     {
         if (chatInputField == null) return;
 
         string trimmedText = chatInputField.text.Trim();
 
-        // 正解チェック
+        // まずチャット欄を閉じて入力状態をリセット
+        CloseChat();
+
+        // 正解判定
         if (trimmedText == "おきろ" || trimmedText == "オキロ" || trimmedText == "okiro")
         {
             inputCount++;
-            chatInputField.text = "";
             ProcessPhase(inputCount);
         }
-        else
-        {
-            // 不正解・空文字の場合は確定でチャットを閉じてゲームへ復帰
-            CloseChat();
-        }
+        // 間違っている場合（または空文字）は CloseChat() により閉じたままゲーム復帰
     }
 
-    // ★チャットを開く
     public void OpenChat()
     {
         isChatOpen = true;
@@ -119,12 +110,10 @@ public class GameClearManager : MonoBehaviour
         {
             chatInputField.gameObject.SetActive(true);
             chatInputField.text = "";
-            chatInputField.Select();
             chatInputField.ActivateInputField();
         }
     }
 
-    // ★チャットを完全に閉じ、ゲーム操作を100%復帰させる
     public void CloseChat()
     {
         isChatOpen = false;
@@ -132,15 +121,13 @@ public class GameClearManager : MonoBehaviour
         if (chatInputField != null)
         {
             chatInputField.text = "";
-            chatInputField.DeactivateInputField(); // フォーカス解除
-            chatInputField.gameObject.SetActive(false); // 非表示
+            chatInputField.DeactivateInputField();
+            chatInputField.gameObject.SetActive(false);
         }
 
-        // 操作の復帰
         if (mouseLook != null) mouseLook.isChatActive = false;
         if (playerMovement != null) playerMovement.canMove = true;
 
-        // カーソルを完全にゲーム画面中央へ固定＆非表示
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
     }
@@ -150,35 +137,26 @@ public class GameClearManager : MonoBehaviour
         switch (count)
         {
             case 1:
-                ShowSubtitle("「...おきろ」", 3.0f);
+                ShowSubtitle("「……おきろ」", 3.0f);
                 HideObjects(propsObjects);
-                RefocusChat();
+                OpenChat(); // 演出後に空のチャットを自動再開
                 break;
 
             case 2:
-                ShowSubtitle("「...おきろ！」", 3.0f);
+                ShowSubtitle("「……おきろ！」", 3.0f);
                 HideObjects(pillarObjects);
-                RefocusChat();
+                OpenChat();
                 break;
 
             case 3:
                 ShowSubtitle("「おきろ！！！！」", 3.0f);
                 HideObjects(wallRoofObjects);
-                RefocusChat();
+                OpenChat();
                 break;
 
             case 4:
                 StartCoroutine(FinalPhaseSequence());
                 break;
-        }
-    }
-
-    void RefocusChat()
-    {
-        if (chatInputField != null)
-        {
-            chatInputField.Select();
-            chatInputField.ActivateInputField();
         }
     }
 
@@ -230,7 +208,7 @@ public class GameClearManager : MonoBehaviour
             yield return null;
         }
 
-        ShowSubtitle("「ああ、やっと....」", 4.0f);
+        ShowSubtitle("「……夢から、おきるんだ。」", 4.0f);
 
         float alpha = 0f;
         while (alpha < 1f)

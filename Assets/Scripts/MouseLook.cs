@@ -88,7 +88,7 @@ public class MouseLook : MonoBehaviour
                     hasCommentedMirror = true;
                     if (SubtitleManager.Instance != null)
                     {
-                        SubtitleManager.Instance.ShowSubtitle("「あれ……鏡を見ている間は普通に歩ける……？ なんでだ……？」", 4.5f);
+                        SubtitleManager.Instance.ShowSubtitle("「……今、普通に歩けた？」", 4.5f);
                     }
                 }
             }

@@ -25,6 +25,10 @@ public class PlayerMovement : MonoBehaviour
     public bool isLookingAtMirror = false; // 鏡を見ているか
     public bool canMove = true;            // 移動可能か
 
+    private int airJumpCount = 0;
+    private bool hasTriggeredFirstAirJump = false;
+    private bool hasTriggeredSecondAirJump = false;
+
     Vector3 velocity;
     bool isGrounded;
 
@@ -48,37 +52,37 @@ public class PlayerMovement : MonoBehaviour
 
     void Update()
     {
+        // 1. 接地判定
         Transform checkTarget = groundCheck != null ? groundCheck : transform;
         int mask = groundMask.value != 0 ? groundMask.value : -1;
         isGrounded = Physics.CheckSphere(checkTarget.position, groundDistance, mask);
 
+        // 着地時の初期化（空中ジャンプカウントをリセット）
         if (isGrounded && velocity.y < 0)
         {
             velocity.y = -2f;
+            airJumpCount = 0;
         }
 
+        // 移動制限時の処理
         if (!canMove)
         {
             if (footstepAudio != null && footstepAudio.isPlaying)
             {
                 footstepAudio.Stop();
             }
+            // 移動不能でも重力だけは計算して処理を終える
+            velocity.y += gravity * Time.deltaTime;
+            if (controller != null) controller.Move(velocity * Time.deltaTime);
             return;
         }
 
+        // 2. 移動処理
         float x = Input.GetAxis("Horizontal");
         float z = Input.GetAxis("Vertical");
-
         Vector3 move = transform.right * x + transform.forward * z;
 
-        // ★速度決定ロジック：
-        // 「スローゾーン内にいて」かつ「鏡を見ていない」時だけ減速（slowSpeed）
-        // それ以外（ゾーン外、またはゾーン内で鏡を見ている時）は通常速度（speed）
-        float currentSpeed = speed;
-        if (isInSlowZone && !isLookingAtMirror)
-        {
-            currentSpeed = slowSpeed;
-        }
+        float currentSpeed = (isInSlowZone && !isLookingAtMirror) ? slowSpeed : speed;
 
         if (controller != null)
         {
@@ -87,18 +91,38 @@ public class PlayerMovement : MonoBehaviour
 
         HandleFootsteps(move.magnitude);
 
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        // 3. ジャンプ・空中ジャンプ＆セリフ処理
+        if (Input.GetButtonDown("Jump"))
         {
+            // ジャンプボタンを押したら地上・空中問わずカウントアップ
+            airJumpCount++;
+
+            // 跳躍処理
             velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+
+            // 1回目の「着地前ジャンプ（＝通算2回目のジャンプ）」でセリフ
+            if (SubtitleManager.Instance != null)
+            {
+                if (airJumpCount == 2 && !hasTriggeredFirstAirJump)
+                {
+                    hasTriggeredFirstAirJump = true;
+                    SubtitleManager.Instance.ShowSubtitle("「……あれ？」", 2.5f);
+                }
+                else if (airJumpCount == 3 && !hasTriggeredSecondAirJump)
+                {
+                    hasTriggeredSecondAirJump = true;
+                    SubtitleManager.Instance.ShowSubtitle("「……まだ、跳べる。」", 2.5f);
+                }
+            }
         }
 
+        // 4. 重力処理
         velocity.y += gravity * Time.deltaTime;
         if (controller != null)
         {
             controller.Move(velocity * Time.deltaTime);
         }
     }
-
     void HandleFootsteps(float moveMagnitude)
     {
         if (footstepAudio == null) return;

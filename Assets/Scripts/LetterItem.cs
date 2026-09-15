@@ -23,12 +23,12 @@ public class LetterItem : MonoBehaviour
 
             if (totalCollected == 1)
             {
-                subtitleText = $"「……『{letterName}』？ なんでこんなところに文字があるんだ……」";
+                subtitleText = $"「……『{letterName}』？ なんでこんなところに文字が……」";
                 ShowSubtitle(subtitleText, 5.0f);
             }
             else if (totalCollected == 2)
             {
-                subtitleText = $"「また文字だ……『{letterName}』……何かのメッセージか……？」";
+                subtitleText = $"「また文字だ……『{letterName}』……？」";
                 ShowSubtitle(subtitleText, 5.0f);
             }
             else if (totalCollected >= 3)
@@ -48,26 +48,32 @@ public class LetterItem : MonoBehaviour
 
     private IEnumerator PlayTruthSequence()
     {
-        ShowSubtitle("「これで最後か……？ 『お』『き』『ろ』……おきろ……？」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
+        ShowSubtitle("「……『お』『き』『ろ』」", 3.0f);
+        yield return new WaitForSeconds(4.0f);
 
-        ShowSubtitle("「おきろ、って……誰に？」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
+        ShowSubtitle("「……おきろ。」", 3.0f);
+        yield return new WaitForSeconds(4.0f);
 
-        ShowSubtitle("「……俺に？」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
-
-        ShowSubtitle("「……」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
-
-        ShowSubtitle("「……そうか。」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
-
-        ShowSubtitle("「これは夢なんだ。」", 5.0f);
-        yield return new WaitForSeconds(7.0f);
-
-        ShowSubtitle("「だったら、起きればいい。」", 5.0f);
+        ShowSubtitle("「誰に言ってるんだ？」", 4.0f);
         yield return new WaitForSeconds(5.0f);
+
+        ShowSubtitle("「……俺、か？」", 3.0f);
+        yield return new WaitForSeconds(4.0f);
+
+        ShowSubtitle("「……」", 2.0f);
+        yield return new WaitForSeconds(3.0f);
+
+        ShowSubtitle("「……そうか。」", 2.0f);
+        yield return new WaitForSeconds(3.0f);
+
+        ShowSubtitle("「ここ、夢なのか？」", 4.0f);
+        yield return new WaitForSeconds(5.0f);
+
+        ShowSubtitle("「……だったら、」", 4.0f);
+        yield return new WaitForSeconds(5.0f);
+
+        ShowSubtitle("「起きればいい。」", 5.0f);
+        yield return new WaitForSeconds(6.0f);
 
         // 未割り当ての場合はシーン上から自動検索
         if (gameClearManager == null)

@@ -41,6 +41,13 @@ public class NoisePuzzleManager : MonoBehaviour
             retryButton.onClick.RemoveAllListeners();
             retryButton.onClick.AddListener(RestartScene);
         }
+        // ★追加：スライダーが動いた時に OnVolumeChanged メソッドを自動で呼ぶ設定
+        if (volumeSlider != null)
+        {
+            volumeSlider.onValueChanged.RemoveAllListeners();
+            volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
+            AudioListener.volume = volumeSlider.value; // 初期音量をスライダー値に合わせる
+        }
 
         // 参照が未設定の場合は自動取得
         if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
@@ -132,17 +139,17 @@ public class NoisePuzzleManager : MonoBehaviour
             if (timer >= 10.0f && !flag10)
             {
                 flag10 = true;
-                ShowSubtitle("「なんだこの音、、、」", 4.0f);
+                ShowSubtitle("「……なんだこの音。」", 4.0f);
             }
             else if (timer >= 30.0f && !flag30)
             {
                 flag30 = true;
-                ShowSubtitle("「うるさい、、、どうにかしてこの音を消せないか？」", 5.0f);
+                ShowSubtitle("「うるさい……」", 5.0f);
             }
             else if (timer >= 60.0f && !flag60)
             {
                 flag60 = true;
-                ShowSubtitle("「うるさいうるさい！早く、、、！！！」", 5.0f);
+                ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
             }
 
             yield return null;
@@ -152,7 +159,7 @@ public class NoisePuzzleManager : MonoBehaviour
         {
             if (noiseAudio != null) noiseAudio.volume = maxVolume;
 
-            ShowSubtitle("「もう、、ダメだ、、、」", 3.0f);
+            ShowSubtitle("「もう、ダメだ……」", 3.0f);
             yield return new WaitForSeconds(2.0f);
 
             GameOver();
@@ -223,7 +230,15 @@ public class NoisePuzzleManager : MonoBehaviour
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
+        ShowSubtitle("「静かになった…………。」", 5.0f);
+
 
         Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
+
+    }
+    // ★追加：スライダーの値をゲーム全体の実際の音量に反映させる処理
+    public void OnVolumeChanged(float value)
+    {
+        AudioListener.volume = value;
     }
 }

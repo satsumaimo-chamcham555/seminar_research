@@ -72,11 +72,11 @@ public class InvisibleEnemy : MonoBehaviour
 
                 if (lookCount == 1)
                 {
-                    ShowSubtitle("「……？ 足音が止まった……？」", 3.5f);
+                    ShowSubtitle("「……止まった？」", 3.5f);
                 }
                 else if (lookCount == 2)
                 {
-                    ShowSubtitle("「こっちの方にいるのか……？ 見えていないが、見ている間は動かない……のか？」", 5.0f);
+                    ShowSubtitle("「……やっぱり。」", 5.0f);
                 }
             }
             else
@@ -85,7 +85,7 @@ public class InvisibleEnemy : MonoBehaviour
                 if (lookCount == 1 && !hasShownLookOff)
                 {
                     hasShownLookOff = true;
-                    ShowSubtitle("「違う、まだいる……！ なんでさっきは一瞬止まったんだ……？」", 4.5f);
+                    ShowSubtitle("「……さっき、止まったよな？」", 4.5f);
                 }
             }
         }
@@ -99,7 +99,7 @@ public class InvisibleEnemy : MonoBehaviour
         isChasing = true;
         if (SubtitleManager.Instance != null)
         {
-            SubtitleManager.Instance.ShowSubtitle("「……ッ！？ なんだ、この足音……こっちに向かってくる！？」", 4.0f);
+            SubtitleManager.Instance.ShowSubtitle("「……！ なんだ、この足音……こっちに来てる！？」", 4.0f);
         }
     }
 
@@ -115,7 +115,7 @@ public class InvisibleEnemy : MonoBehaviour
         if (letterRo != null) letterRo.SetActive(true);
 
         // ★ゴールゾーン到達時のセリフ
-        ShowSubtitle("「……いなくなった気がする。」", 4.0f);
+        ShowSubtitle("「……もう聞こえない。」", 4.0f);
 
         Debug.Log("【3つ目の謎クリア】敵が消滅し、『ろ』が出現！");
     }
