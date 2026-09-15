@@ -7,11 +7,11 @@ public class MouseLook : MonoBehaviour
 
     private float xRotation = 0f;
     public bool isChatActive = false;
+    public bool canLook = true; // ★追加：視線操作を許可するかどうかのフラグ
 
     private InvisibleEnemy currentEnemy;
     private PlayerMovement playerMovement;
 
-    // ★鏡を見た時のセリフ用フラグ
     private bool hasCommentedMirror = false;
 
     void Start()
@@ -25,14 +25,17 @@ public class MouseLook : MonoBehaviour
         {
             playerMovement = FindObjectOfType<PlayerMovement>();
         }
+
+        // 初期回転値の保持
+        xRotation = transform.localEulerAngles.x;
+        if (xRotation > 180f) xRotation -= 360f;
     }
 
     void Update()
     {
-        if (isChatActive || !enabled)
+        // ★修正：canLook が false の時はマウス入力を完全に無視して処理を抜ける
+        if (isChatActive || !canLook)
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
             return;
         }
 
@@ -60,7 +63,6 @@ public class MouseLook : MonoBehaviour
 
         if (Physics.Raycast(ray, out hit, 50.0f))
         {
-            // 1. 敵判定
             InvisibleEnemy enemy = hit.collider.GetComponent<InvisibleEnemy>();
             if (enemy != null)
             {
@@ -77,12 +79,10 @@ public class MouseLook : MonoBehaviour
                 currentEnemy = null;
             }
 
-            // 2. 鏡（スローゾーン）判定
             if (hit.collider.CompareTag("Mirror"))
             {
                 lookingAtMirrorThisFrame = true;
 
-                // ★スローゾーン内で初めて鏡を見た時のセリフ演出
                 if (playerMovement != null && playerMovement.isInSlowZone && !hasCommentedMirror)
                 {
                     hasCommentedMirror = true;

@@ -18,7 +18,7 @@ public class SubtitleManager : MonoBehaviour
 
     void Start()
     {
-        ShowSubtitle("「これは夢なんだ……。何か普通じゃないことで解決できないか？」", 5.0f);
+        ShowSubtitle(" ", 5.0f);
     }
 
     public void ShowSubtitle(string text, float duration = 4.0f)
