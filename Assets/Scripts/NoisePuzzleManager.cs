@@ -7,15 +7,15 @@ public class NoisePuzzleManager : MonoBehaviour
 {
     [Header("UI & オーディオ参照")]
     public GameObject pausePanel;
-    public GameObject gameOverPanel;
+    public GameObject END1Panel;
     public Button retryButton;
     public Slider volumeSlider;
     public AudioSource noiseAudio;
     public GameObject letterKi;
 
     [Header("プレイヤー参照（操作停止用）")]
-    public MouseLook mouseLook;           // ★追加：MouseLookをアタッチ
-    public PlayerMovement playerMovement; // ★追加：PlayerMovementをアタッチ
+    public MouseLook mouseLook;           
+    public PlayerMovement playerMovement; 
 
     [Header("ノイズの上昇設定")]
     public float maxVolume = 1.0f;       
@@ -23,11 +23,12 @@ public class NoisePuzzleManager : MonoBehaviour
 
     private bool isSolved = false;
     private bool isIncreasing = false;
+    private bool hasNoticedVolumeDown = false; // ★追加：音量を少し下げたセリフの既読フラグ
 
     void Start()
     {
         if (letterKi != null) letterKi.SetActive(false);
-        if (gameOverPanel != null) gameOverPanel.SetActive(false);
+        if (END1Panel != null) END1Panel.SetActive(false);
         
         if (noiseAudio != null)
         {
@@ -35,31 +36,27 @@ public class NoisePuzzleManager : MonoBehaviour
             noiseAudio.pitch = 1.0f;
         }
 
-        // リトライボタンにシーン再読み込み処理を自動登録
         if (retryButton != null)
         {
             retryButton.onClick.RemoveAllListeners();
             retryButton.onClick.AddListener(RestartScene);
         }
-        // ★追加：スライダーが動いた時に OnVolumeChanged メソッドを自動で呼ぶ設定
+
         if (volumeSlider != null)
         {
             volumeSlider.onValueChanged.RemoveAllListeners();
             volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
-            AudioListener.volume = volumeSlider.value; // 初期音量をスライダー値に合わせる
+            AudioListener.volume = volumeSlider.value; 
         }
 
-        // 参照が未設定の場合は自動取得
         if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
         if (playerMovement == null) playerMovement = FindObjectOfType<PlayerMovement>();
     }
 
     void Update()
     {
-        // ゲームオーバーパネルが表示されている時はポーズなどの入力を受け付けない
-        if (gameOverPanel != null && gameOverPanel.activeSelf) return;
+        if (END1Panel != null && END1Panel.activeSelf) return;
 
-        // ★Escキーによるポーズ画面の開閉処理（プレイヤーとカメラを完全制御）
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             if (pausePanel != null)
@@ -69,7 +66,6 @@ public class NoisePuzzleManager : MonoBehaviour
 
                 if (isActive)
                 {
-                    // ポーズ開く：操作を一時停止＆カーソル表示
                     if (mouseLook != null) mouseLook.isChatActive = true;
                     if (playerMovement != null) playerMovement.canMove = false;
 
@@ -78,7 +74,6 @@ public class NoisePuzzleManager : MonoBehaviour
                 }
                 else
                 {
-                    // ポーズ閉じる：操作を再開＆カーソルロック
                     if (mouseLook != null) mouseLook.isChatActive = false;
                     if (playerMovement != null) playerMovement.canMove = true;
 
@@ -90,7 +85,6 @@ public class NoisePuzzleManager : MonoBehaviour
 
         if (isSolved) return;
 
-        // ノイズ演出が開始している（isIncreasing == true）ときだけ音量0クリア判定を行う
         if (isIncreasing && pausePanel != null && pausePanel.activeSelf && volumeSlider != null)
         {
             if (volumeSlider.value <= 0.001f)
@@ -184,19 +178,17 @@ public class NoisePuzzleManager : MonoBehaviour
             noiseAudio.pitch = 1.0f;
         }
 
-        if (gameOverPanel != null)
+        if (END1Panel != null)
         {
-            gameOverPanel.SetActive(true);
+            END1Panel.SetActive(true);
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
 
-        // ゲームオーバー時も操作を停止
         if (mouseLook != null) mouseLook.isChatActive = true;
         if (playerMovement != null) playerMovement.canMove = false;
     }
 
-    // リトライ処理
     public void RestartScene()
     {
         LetterItem.totalCollected = 0;
@@ -220,7 +212,12 @@ public class NoisePuzzleManager : MonoBehaviour
         }
         if (letterKi != null) letterKi.SetActive(true);
 
-        // ★パズル解決時にポーズ画面が開いていたら閉じて操作復帰させる
+        // ★修正：ポーズ画面を閉じる前に字幕を表示するように変更
+        if (SubtitleManager.Instance != null)
+        {
+            SubtitleManager.Instance.ShowSubtitle("「静かになった…………。」", 5.0f);
+        }
+
         if (pausePanel != null && pausePanel.activeSelf)
         {
             pausePanel.SetActive(false);
@@ -230,15 +227,24 @@ public class NoisePuzzleManager : MonoBehaviour
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
-        ShowSubtitle("「静かになった…………。」", 5.0f);
-
 
         Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
-
     }
-    // ★追加：スライダーの値をゲーム全体の実際の音量に反映させる処理
+
+    // ★追加：スライダーを動かした時の処理
     public void OnVolumeChanged(float value)
     {
         AudioListener.volume = value;
+
+        // ノイズイベント中 且つ まだ一度も少し下げたセリフを出していない場合
+        if (isIncreasing && !isSolved && !hasNoticedVolumeDown)
+        {
+            // スライダーの値が0.95以下になったら気づく演出（0に到達する前）
+            if (value < 0.95f && value > 0.001f)
+            {
+                hasNoticedVolumeDown = true;
+                ShowSubtitle("「……あれ？ 今、音が……」", 4.0f);
+            }
+        }
     }
 }

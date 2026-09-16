@@ -8,6 +8,7 @@ public class GameClearManager : MonoBehaviour
     [Header("UI要素")]
     public TMP_InputField chatInputField;
     public Image whiteoutImage;
+    public GameObject END3Panel;
 
     [Header("参照")]
     public MouseLook mouseLook;
@@ -232,6 +233,19 @@ public class GameClearManager : MonoBehaviour
 
             yield return null;
         }
+        // 少し余韻を残すため0.5秒待機
+        yield return new WaitForSeconds(1.0f);
+
+        // ★追加：真っ白になった後にEND3パネルを表示＆マウス操作解放
+        if (END3Panel != null)
+        {
+            END3Panel.SetActive(true);
+        }
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        if (mouseLook != null) mouseLook.isChatActive = true;
+        if (playerMovement != null) playerMovement.canMove = false;
 
         Debug.Log("【ゲームクリア】現実へ目覚めました。");
     }

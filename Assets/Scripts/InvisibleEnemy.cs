@@ -9,7 +9,7 @@ public class InvisibleEnemy : MonoBehaviour
     public GameObject letterRo;        // クリア時に出す「ろ」の文字
 
     [Header("UI参照")]
-    public GameObject gameOverPanel;   // ゲームオーバーパネル
+    public GameObject END2Panel;   // ゲームオーバーパネル
 
     [Header("状態フラグ")]
     public bool isChasing = false;     // 追撃中か
@@ -134,9 +134,9 @@ public class InvisibleEnemy : MonoBehaviour
                 footstepAudio.Stop();
             }
 
-            if (gameOverPanel != null)
+            if (END2Panel != null)
             {
-                gameOverPanel.SetActive(true);
+                END2Panel.SetActive(true);
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
             }
