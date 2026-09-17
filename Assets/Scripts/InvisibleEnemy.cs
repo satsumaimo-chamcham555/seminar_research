@@ -116,6 +116,19 @@ public class InvisibleEnemy : MonoBehaviour
 
         // ★ゴールゾーン到達時のセリフ
         ShowSubtitle("「……もう聞こえない。」", 4.0f);
+        // ★追加：接触によるゲームオーバー事故を防ぐため、当たり判定を即座に無効化
+        Collider enemyCollider = GetComponent<Collider>();
+        if (enemyCollider != null)
+        {
+            enemyCollider.enabled = false;
+        }
+
+        // JumpscareEnemy側のスクリプト（コライダー処理含む）も無効化
+        JumpscareEnemy jumpscare = GetComponent<JumpscareEnemy>();
+        if (jumpscare != null)
+        {
+            jumpscare.enabled = false;
+        }
 
         Debug.Log("【3つ目の謎クリア】敵が消滅し、『ろ』が出現！");
     }

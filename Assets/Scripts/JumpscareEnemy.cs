@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Rendering.PostProcessing;
 
 public class JumpscareEnemy : MonoBehaviour
 {
@@ -7,12 +8,17 @@ public class JumpscareEnemy : MonoBehaviour
     public SkinnedMeshRenderer enemyMesh; 
     public Animator enemyAnimator;        
     public GameObject END2Panel;          
-    public Transform headCube;            // ★追加：顔位置のCube（またはTarget）
+    public Transform headCube;            
+    public AudioSource jumpscareAudioSource; 
+    public AudioClip jumpscareSE;
+
+    [Header("ポストエフェクト参照")]
+    public PostProcessVolume jumpscareVolume; // HierarchyのJumpscareVolumeをアタッチ
 
     [Header("ジャンプスケア演出設定")]
     public string attackAnimationTrigger = "Attack"; 
-    public float targetDistance = 1.2f;   // ★Face Cubeからの固定距離
-    public float jumpscareDuration = 2.0f; 
+    public float targetDistance = 1.2f;   
+    public float jumpscareDuration = 2.0f; // ★じわじわ歪ませる時間（秒）
 
     [Header("参照（未設定なら自動取得）")]
     public MouseLook mouseLook;
@@ -25,7 +31,12 @@ public class JumpscareEnemy : MonoBehaviour
         if (enemyMesh != null) enemyMesh.enabled = false;
         if (END2Panel != null) END2Panel.SetActive(false);
 
-        // headCube未設定の場合、子要素から自動取得を試みる
+        // ゲーム開始時はエフェクトを切っておく
+        if (jumpscareVolume != null)
+        {
+            jumpscareVolume.weight = 0f;
+        }
+
         if (headCube == null)
         {
             Transform found = transform.Find("Cube");
@@ -47,7 +58,7 @@ public class JumpscareEnemy : MonoBehaviour
 
     IEnumerator GameOverSequence(GameObject playerObj)
     {
-        // 1. 物理と移動の停止
+        // 1. プレイヤーの操作を停止
         if (playerMovement != null) playerMovement.enabled = false;
         if (mouseLook != null) mouseLook.isChatActive = true; 
 
@@ -73,22 +84,48 @@ public class JumpscareEnemy : MonoBehaviour
             enemyAnimator.SetTrigger(attackAnimationTrigger);
         }
 
-        // 4. headCubeが設定されている場合、固定距離・固定視線に合わせる
+        // 4. SE再生
+        if (jumpscareAudioSource != null && jumpscareSE != null)
+        {
+            jumpscareAudioSource.PlayOneShot(jumpscareSE);
+        }
+
+        // 5. カメラ位置の固定
         if (headCube != null && camTransform != null)
         {
-            // エネミー（Cube）の正面方向へ一定距離（targetDistance）離れた位置にカメラを固定配置
             camTransform.position = headCube.position + (headCube.forward * targetDistance);
-            
-            // カメラを常にheadCubeの絶対中心に向かせる
             camTransform.LookAt(headCube.position);
         }
 
-        Debug.Log("【GAME OVER】Face Cube基準でジャンプスケア固定！");
+        // ★6. 時間をかけてじわじわと Weight を 0 ➔ 1 に変化させる
+        float elapsedTime = 0f;
+        while (elapsedTime < jumpscareDuration)
+        {
+            elapsedTime += Time.deltaTime;
+            
+            if (jumpscareVolume != null)
+            {
+                // 0から1へ滑らかに補間
+                jumpscareVolume.weight = Mathf.Lerp(0f, 1f, elapsedTime / jumpscareDuration);
+            }
 
-        // 5. 演出終了待ち
-        yield return new WaitForSeconds(jumpscareDuration);
+            // カメラの位置・視線をフレーム毎に固定維持（揺れ防止）
+            if (headCube != null && camTransform != null)
+            {
+                camTransform.position = headCube.position + (headCube.forward * targetDistance);
+                camTransform.LookAt(headCube.position);
+            }
 
-        // 6. END2パネル表示＆マウス解放
+            yield return null; // 1フレーム待機
+        }
+
+        // 確実に最大値にする
+        if (jumpscareVolume != null)
+        {
+            jumpscareVolume.weight = 1f;
+        }
+
+        // 7. END2パネル表示＆マウス解放
         if (END2Panel != null)
         {
             END2Panel.SetActive(true);
