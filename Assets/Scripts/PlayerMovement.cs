@@ -111,7 +111,7 @@ public class PlayerMovement : MonoBehaviour
                 else if (airJumpCount == 3 && !hasTriggeredSecondAirJump)
                 {
                     hasTriggeredSecondAirJump = true;
-                    SubtitleManager.Instance.ShowSubtitle("「……まだ、跳べる。」", 2.5f);
+                    SubtitleManager.Instance.ShowSubtitle("「……まだ、跳べる？」", 2.5f);
                 }
             }
         }
