@@ -14,7 +14,9 @@ public class NoisePuzzleManager : MonoBehaviour
     public GameObject letterKi;
 
     [Header("TV参照")]
-    public TVController tvController; // ★追加：TVコントローラーをアタッチ
+    public Transform tvParent; // ★ここに親オブジェクト「TVs」を1個だけセット！
+    private TVController[] tvControllers; // 自動取得用の配列
+
 
     [Header("プレイヤー参照（操作停止用）")]
     public MouseLook mouseLook;
@@ -34,6 +36,11 @@ public class NoisePuzzleManager : MonoBehaviour
         if (letterKi != null) letterKi.SetActive(false);
         if (END1Panel != null) END1Panel.SetActive(false);
         
+        // ★親オブジェクト「TVs」から子要素の TVController をすべて自動取得
+        if (tvParent != null)
+        {
+            tvControllers = tvParent.GetComponentsInChildren<TVController>();
+        }
         if (noiseAudio != null)
         {
             noiseAudio.volume = 0f;
@@ -102,10 +109,16 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (isSolved || isIncreasing) return;
 
-        // ★ノイズ開始時にTVをオンにする（ライトをつける）
-        if (tvController != null)
+     // ★親の中にあった全てのTVを一括で点灯させる！
+        if (tvControllers != null && tvControllers.Length > 0)
         {
-            tvController.TurnOnTV();
+            foreach (TVController tv in tvControllers)
+            {
+                if (tv != null)
+                {
+                    tv.TurnOnTV();
+                }
+            }
         }
 
         if (noiseAudio != null)
@@ -140,6 +153,8 @@ public class NoisePuzzleManager : MonoBehaviour
                 }
             }
 
+        if (!isSolved)
+        {
             if (timer >= 10.0f && !flag10)
             {
                 flag10 = true;
@@ -155,6 +170,7 @@ public class NoisePuzzleManager : MonoBehaviour
                 flag60 = true;
                 ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
             }
+        }
 
             yield return null;
         }
@@ -219,6 +235,18 @@ public class NoisePuzzleManager : MonoBehaviour
         if (noiseCoroutine != null)
         {
             StopCoroutine(noiseCoroutine);
+        }
+
+        // ★パズルクリア時、残っている全TVのライトもまとめてOFFにする
+        if (tvControllers != null)
+        {
+            foreach (TVController tv in tvControllers)
+            {
+                if (tv != null)
+                {
+                    tv.TurnOffTVByManager();
+                }
+            }
         }
 
         if (noiseAudio != null)

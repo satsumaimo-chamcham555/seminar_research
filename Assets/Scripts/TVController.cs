@@ -100,4 +100,15 @@ public class TVController : MonoBehaviour
 
         Debug.Log("TVの電源をオフにして謎解きを完了しました！");
     }
+    // ★マネージャーから一括消去される際の処理
+    public void TurnOffTVByManager()
+    {
+        isTVOn = false;
+        isTVInteractive = false;
+
+        if (tvLight != null) tvLight.enabled = false;
+        if (tvAudioSource != null) tvAudioSource.Stop();
+        if (tvScreenEmission != null) tvScreenEmission.SetActive(false);
+        if (interactUI != null) interactUI.SetActive(false);
+    }
 }
