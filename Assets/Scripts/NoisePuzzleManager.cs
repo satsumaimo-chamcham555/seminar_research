@@ -13,8 +13,11 @@ public class NoisePuzzleManager : MonoBehaviour
     public AudioSource noiseAudio;
     public GameObject letterKi;
 
+    [Header("TV参照")]
+    public TVController tvController; // ★追加：TVコントローラーをアタッチ
+
     [Header("プレイヤー参照（操作停止用）")]
-    public MouseLook mouseLook;           
+    public MouseLook mouseLook;
     public PlayerMovement playerMovement; 
 
     [Header("ノイズの上昇設定")]
@@ -24,6 +27,7 @@ public class NoisePuzzleManager : MonoBehaviour
     private bool isSolved = false;
     private bool isIncreasing = false;
     private bool hasNoticedVolumeDown = false; // ★追加：音量を少し下げたセリフの既読フラグ
+    private Coroutine noiseCoroutine; // ★追加：コルーチン管理用
 
     void Start()
     {
@@ -98,10 +102,16 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (isSolved || isIncreasing) return;
 
+        // ★ノイズ開始時にTVをオンにする（ライトをつける）
+        if (tvController != null)
+        {
+            tvController.TurnOnTV();
+        }
+
         if (noiseAudio != null)
         {
             if (!noiseAudio.isPlaying) noiseAudio.Play();
-            StartCoroutine(FadeInNoiseSequence());
+            noiseCoroutine = StartCoroutine(FadeInNoiseSequence());
         }
     }
 
@@ -200,10 +210,16 @@ public class NoisePuzzleManager : MonoBehaviour
         SceneManager.LoadScene(currentScene.name);
     }
 
-    void SolvePuzzle()
+    public void SolvePuzzle()
     {
         isSolved = true;
         StopAllCoroutines();
+
+        // ★進行中の音量＆字幕コルーチンを強制停止
+        if (noiseCoroutine != null)
+        {
+            StopCoroutine(noiseCoroutine);
+        }
 
         if (noiseAudio != null)
         {
