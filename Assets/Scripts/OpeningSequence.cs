@@ -8,6 +8,13 @@ public class OpeningSequence : MonoBehaviour
     [Header("UI設定")]
     public Image fadeOverlay;
 
+    [Header("操作説明UI設定")]
+    public GameObject tutorialPanel;   // 操作説明パネル本体
+    public Button tutorialCloseButton; // 「ゲームを開始する」ボタン
+
+    [Header("オーディオ設定")]
+    public AudioSource openingAudio;
+
     [Header("Post Processing設定")]
     public PostProcessVolume postProcessVolume;
 
@@ -24,25 +31,75 @@ public class OpeningSequence : MonoBehaviour
 
     void Start()
     {
+
+        // ★1. 最初は音をしっかり止めておく
+        if (openingAudio != null)
+        {
+            openingAudio.Stop();
+        }
+
         if (postProcessVolume != null && postProcessVolume.profile != null)
         {
             postProcessVolume.profile.TryGetSettings(out dofComponent);
         }
 
+        // 1. 最初は画面を真っ黒にしてプレイヤー操作を停止
+        if (playerMovement != null) playerMovement.canMove = false;
+        if (mouseLook != null)
+        {
+            mouseLook.canLook = false;
+        }
+
+        if (fadeOverlay != null)
+        {
+            Color initialColor = fadeOverlay.color;
+            initialColor.a = 1f;
+            fadeOverlay.color = initialColor;
+        }
+
+        // 2. カーソルを表示・ロック解除して操作説明パネルをアクティブにする
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
+
+        if (tutorialPanel != null)
+        {
+            tutorialPanel.SetActive(true);
+        }
+
+        // 3. ★スクリプト側でボタンクリック時の処理を登録（InspectorでのOnClick設定は不要になります！）
+        if (tutorialCloseButton != null)
+        {
+            tutorialCloseButton.onClick.RemoveAllListeners();
+            tutorialCloseButton.onClick.AddListener(OnStartButtonClicked);
+        }
+    }
+
+    // ★ボタンが押されたら呼ばれる関数
+    private void OnStartButtonClicked()
+    {
+        // 操作説明パネルを閉じる
+        if (tutorialPanel != null)
+        {
+            tutorialPanel.SetActive(false);
+        }
+
+        // カーソルを隠して画面中央にロック
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
+        // ★ここで初めて音を鳴らす！
+        if (openingAudio != null)
+        {
+            openingAudio.Play();
+        }
+
+        // オープニング演出を開始！
         StartCoroutine(StartOpeningSequence());
     }
 
     IEnumerator StartOpeningSequence()
     {
-        // 1. 開始直後は操作を禁止（canLook / canMove を false に）
-        if (playerMovement != null) playerMovement.canMove = false;
-        if (mouseLook != null)
-        {
-            mouseLook.canLook = false; // ★無効化ではなくフラグ制御
-            mouseLook.LockCursor(true);
-        }
-
-        // 暗転パネルを真っ黒で表示
+        // 暗転パネルを真っ黒で表示（念のため）
         if (fadeOverlay != null)
         {
             Color initialColor = fadeOverlay.color;
@@ -102,10 +159,11 @@ public class OpeningSequence : MonoBehaviour
 
         yield return new WaitForSeconds(textDisplayDuration);
 
-        // 4. セリフ終了後にスムーズに操作解禁（画面のズレが発生しなくなります）
+        // 4. セリフ終了後にスムーズに操作解禁
         if (mouseLook != null)
         {
             mouseLook.canLook = true;
+            mouseLook.LockCursor(true);
         }
         if (playerMovement != null)
         {

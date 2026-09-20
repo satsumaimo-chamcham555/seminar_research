@@ -115,7 +115,7 @@ public class InvisibleEnemy : MonoBehaviour
         if (letterRo != null) letterRo.SetActive(true);
 
         // ★ゴールゾーン到達時のセリフ
-        ShowSubtitle("「……もう聞こえない。」", 4.0f);
+        ShowSubtitle("「……いなくなった？」", 4.0f);
         // ★追加：接触によるゲームオーバー事故を防ぐため、当たり判定を即座に無効化
         Collider enemyCollider = GetComponent<Collider>();
         if (enemyCollider != null)

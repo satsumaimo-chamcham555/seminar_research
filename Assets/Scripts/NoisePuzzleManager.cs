@@ -68,7 +68,7 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (END1Panel != null && END1Panel.activeSelf) return;
 
-        if (Input.GetKeyDown(KeyCode.Escape))
+        if (Input.GetKeyDown(KeyCode.Tab))
         {
             if (pausePanel != null)
             {
