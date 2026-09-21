@@ -6,7 +6,7 @@ using TMPro;
 public class GameClearManager : MonoBehaviour
 {
     [Header("UI要素")]
-    public WebGLNativeInputField chatInputField;
+    public TMP_InputField chatInputField;
     public Image whiteoutImage;
     public GameObject END3Panel;
 
@@ -24,12 +24,15 @@ public class GameClearManager : MonoBehaviour
     [Header("演出設定")]
     public float fadeSpeed = 0.5f;
 
+    [Tooltip("正解してから次のチャット欄が自動で開くまでの時間（秒）")]
+    public float reopenDelay = 1.0f; // ★ Inspectorから変更できます（初期値：1秒）
+
     private int inputCount = 0;
     private bool isClearing = false;
     private bool isChatOpen = false;
 
     private float chatOpenTimer = 0f;
-    private const float INPUT_BLOCK_DURATION = 0.2f; // 開いた直後の誤作動防止
+    private const float INPUT_BLOCK_DURATION = 0.2f;
 
     void Start()
     {
@@ -43,7 +46,7 @@ public class GameClearManager : MonoBehaviour
     {
         if (isClearing) return;
 
-        // ★1. チャットが開いている時
+        // 1. チャットが開いている時
         if (isChatOpen)
         {
             Cursor.lockState = CursorLockMode.None;
@@ -55,45 +58,45 @@ public class GameClearManager : MonoBehaviour
                 return;
             }
 
-            // Escキーで手動キャンセル
+            // Escキーで手動キャンセルして閉じる
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 CloseChat();
                 return;
             }
 
-            // ★Enterキー（メイン/テンキー）が押されたら文字判定を実行
+            // Enterキーで送信して閉じる
             if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
             {
-                CheckAndSubmit();
+                SubmitAndClose();
             }
             return;
         }
 
-        // ★2. チャットが開いていない時：Enterキーで開く
+        // 2. チャットが閉じている時：Enterキーで開く
         if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
         {
             OpenChat();
         }
     }
 
-    // ★Enter入力時の直接判定メソッド
-    private void CheckAndSubmit()
+    private void SubmitAndClose()
     {
-        if (chatInputField == null) return;
+        string inputText = "";
+        if (chatInputField != null)
+        {
+            inputText = chatInputField.text.Trim();
+        }
 
-        string trimmedText = chatInputField.text.Trim();
-
-        // まずチャット欄を閉じて入力状態をリセット
+        // 間違い・正解に関わらず一旦閉じる
         CloseChat();
 
         // 正解判定
-        if (trimmedText == "おきろ" || trimmedText == "オキロ" || trimmedText == "okiro")
+        if (inputText == "おきろ" || inputText == "オキロ" || inputText == "okiro" || inputText == "OKIRO" || inputText == "おきる" || inputText == "オキル" || inputText == "okiru" || inputText == "OKIRU")
         {
             inputCount++;
             ProcessPhase(inputCount);
         }
-        // 間違っている場合（または空文字）は CloseChat() により閉じたままゲーム復帰
     }
 
     public void OpenChat()
@@ -140,24 +143,34 @@ public class GameClearManager : MonoBehaviour
             case 1:
                 ShowSubtitle("「……おきろ」", 3.0f);
                 HideObjects(propsObjects);
-                OpenChat(); // 演出後に空のチャットを自動再開
+                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
                 break;
 
             case 2:
                 ShowSubtitle("「……おきろ！」", 3.0f);
                 HideObjects(pillarObjects);
-                OpenChat();
+                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
                 break;
 
             case 3:
                 ShowSubtitle("「おきろ！！！！」", 3.0f);
                 HideObjects(wallRoofObjects);
-                OpenChat();
+                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
                 break;
 
             case 4:
                 StartCoroutine(FinalPhaseSequence());
                 break;
+        }
+    }
+
+    // 少し時間を置いてからチャットを開くコルーチン
+    IEnumerator ReopenChatAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (!isClearing)
+        {
+            OpenChat();
         }
     }
 
@@ -233,10 +246,9 @@ public class GameClearManager : MonoBehaviour
 
             yield return null;
         }
-        // 少し余韻を残すため0.5秒待機
+
         yield return new WaitForSeconds(1.0f);
 
-        // ★追加：真っ白になった後にEND3パネルを表示＆マウス操作解放
         if (END3Panel != null)
         {
             END3Panel.SetActive(true);

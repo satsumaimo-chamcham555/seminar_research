@@ -23051,7 +23051,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a345afdd89eb64170b91600b933734bf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  chatInputField: {fileID: 1861356647}
+  chatInputField: {fileID: 1767369611}
   whiteoutImage: {fileID: 1988967111}
   END3Panel: {fileID: 1526700519}
   mouseLook: {fileID: 480389774}
@@ -23062,6 +23062,8 @@ MonoBehaviour:
   - {fileID: 1866971405}
   - {fileID: 1346894475}
   - {fileID: 1761551455}
+  - {fileID: 786150630}
+  - {fileID: 1134712879}
   pillarObjects:
   - {fileID: 615608318}
   - {fileID: 1638829222}
@@ -23079,6 +23081,7 @@ MonoBehaviour:
   - {fileID: 1727577330}
   - {fileID: 33297437}
   fadeSpeed: 0.5
+  reopenDelay: 0.1
 --- !u!4 &924591306
 Transform:
   m_ObjectHideFlags: 0
@@ -49567,7 +49570,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1767369609}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2da0c512f12947e489f739169773d7ca, type: 3}
   m_Name: 
@@ -49621,7 +49624,19 @@ MonoBehaviour:
   m_CharacterLimit: 0
   m_OnEndEdit:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 924591305}
+        m_TargetAssemblyTypeName: GameClearManager, Assembly-CSharp
+        m_MethodName: OnChatSubmit
+        m_Mode: 5
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
   m_OnSubmit:
     m_PersistentCalls:
       m_Calls: []

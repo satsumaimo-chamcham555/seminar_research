@@ -75,6 +75,9 @@ public class LetterItem : MonoBehaviour
         ShowSubtitle("「起きればいい。」", 5.0f);
         yield return new WaitForSeconds(6.0f);
 
+        ShowSubtitle("「……おきろ、オキロ、okiro…………」", 5.0f);
+        yield return new WaitForSeconds(6.0f);
+
         // 未割り当ての場合はシーン上から自動検索
         if (gameClearManager == null)
         {

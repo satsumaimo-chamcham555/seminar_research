@@ -300,10 +300,9 @@ public class NoisePuzzleManager : MonoBehaviour
             GameOver();
         }
     }
-
     void ShowSubtitle(string text, float duration)
     {
-        if (SubtitleManager.Instance != null && !isSolved)
+        if (SubtitleManager.Instance != null)
         {
             SubtitleManager.Instance.ShowSubtitle(text, duration);
         }
@@ -344,7 +343,7 @@ public class NoisePuzzleManager : MonoBehaviour
     public void SolvePuzzle()
     {
         isSolved = true;
-        StopAllCoroutines();
+        //StopAllCoroutines();
 
         if (noiseCoroutine != null)
         {
