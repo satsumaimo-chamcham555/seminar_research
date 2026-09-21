@@ -6,7 +6,7 @@ using TMPro;
 public class GameClearManager : MonoBehaviour
 {
     [Header("UI要素")]
-    public TMP_InputField chatInputField;
+    public WebGLNativeInputField chatInputField;
     public Image whiteoutImage;
     public GameObject END3Panel;
 
