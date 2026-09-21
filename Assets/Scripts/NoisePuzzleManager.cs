@@ -10,13 +10,20 @@ public class NoisePuzzleManager : MonoBehaviour
     public GameObject END1Panel;
     public Button retryButton;
     public Slider volumeSlider;
+    public Slider brightnessSlider; // ★明るさスライダー（ポーズ画面内）
     public AudioSource noiseAudio;
     public GameObject letterKi;
+    public GameObject letterRo;     // ★『ろ』の文字（アイテム）
+
+    [Header("見えない敵・足音演出参照")]
+    public InvisibleEnemy invisibleEnemy; // ★見えない敵の参照
+    public AudioSource enemyChaseAudio; // ★追われてる時の足音
+    public AudioSource enemyAwayAudio;  // ★遠ざかっていく足音（SE）
+    public bool isBeingChased = false;   // ★敵に追われている最中かのフラグ
 
     [Header("TV参照")]
     public Transform tvParent; // ★ここに親オブジェクト「TVs」を1個だけセット！
     private TVController[] tvControllers; // 自動取得用の配列
-
 
     [Header("プレイヤー参照（操作停止用）")]
     public MouseLook mouseLook;
@@ -28,15 +35,19 @@ public class NoisePuzzleManager : MonoBehaviour
 
     private bool isSolved = false;
     private bool isIncreasing = false;
-    private bool hasNoticedVolumeDown = false; // ★追加：音量を少し下げたセリフの既読フラグ
-    private Coroutine noiseCoroutine; // ★追加：コルーチン管理用
+    private bool hasNoticedVolumeDown = false; // 音量を少し下げたセリフの既読フラグ
+
+    // ★敵イベント管理用変数（重複を削除してすっきり整理）
+    private bool isEnemyEventSolved = false;   // 敵イベント完全撃退フラグ
+    private Coroutine enemySequenceCoroutine;  // 撃退コルーチン管理用
+    private Coroutine noiseCoroutine;          // ノイズコルーチン管理用
 
     void Start()
     {
         if (letterKi != null) letterKi.SetActive(false);
+        if (letterRo != null) letterRo.SetActive(false);
         if (END1Panel != null) END1Panel.SetActive(false);
         
-        // ★親オブジェクト「TVs」から子要素の TVController をすべて自動取得
         if (tvParent != null)
         {
             tvControllers = tvParent.GetComponentsInChildren<TVController>();
@@ -60,8 +71,15 @@ public class NoisePuzzleManager : MonoBehaviour
             AudioListener.volume = volumeSlider.value; 
         }
 
+        if (brightnessSlider != null)
+        {
+            brightnessSlider.onValueChanged.RemoveAllListeners();
+            brightnessSlider.onValueChanged.AddListener(OnBrightnessChanged);
+        }
+
         if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
         if (playerMovement == null) playerMovement = FindObjectOfType<PlayerMovement>();
+        if (invisibleEnemy == null) invisibleEnemy = FindObjectOfType<InvisibleEnemy>();
     }
 
     void Update()
@@ -109,7 +127,6 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (isSolved || isIncreasing) return;
 
-     // ★親の中にあった全てのTVを一括で点灯させる！
         if (tvControllers != null && tvControllers.Length > 0)
         {
             foreach (TVController tv in tvControllers)
@@ -126,6 +143,104 @@ public class NoisePuzzleManager : MonoBehaviour
             if (!noiseAudio.isPlaying) noiseAudio.Play();
             noiseCoroutine = StartCoroutine(FadeInNoiseSequence());
         }
+    }
+
+    // ★ポーズ画面で「明るさスライダー」を動かした時の処理
+    public void OnBrightnessChanged(float value)
+    {
+        // 撃退演出の途中で明るさを 0 より大きく戻してしまった時（追跡再開！）
+        if (value > 0.001f && enemySequenceCoroutine != null)
+        {
+            CancelEnemySequence();
+        }
+        // 敵に追われている最中 ＆ 未撃退 ＆ 明るさが 0 になった時
+        else if (isBeingChased && !isEnemyEventSolved && value <= 0.001f && enemySequenceCoroutine == null)
+        {
+            enemySequenceCoroutine = StartCoroutine(SolveEnemySequence());
+        }
+    }
+
+    // ★明るさを0にして敵から逃げ切る一連の演出コルーチン
+    IEnumerator SolveEnemySequence()
+    {
+        // ※この時点ではまだ完全撃退（isEnemyEventSolved）にはしない
+
+        // 1. 追跡中の足音をストップ＆敵本体の移動を停止
+        if (enemyChaseAudio != null) enemyChaseAudio.Stop();
+        if (invisibleEnemy != null)
+        {
+            invisibleEnemy.isChasing = false;
+            if (invisibleEnemy.footstepAudio != null) invisibleEnemy.footstepAudio.Stop();
+        }
+
+        // 2. セリフ「……足音が止まった？」
+        ShowSubtitle("「……足音が止まった？」", 3.0f);
+
+        // ★明るさが0のままか監視しながら 2.5秒 待機
+        float timer = 0f;
+        while (timer < 2.5f)
+        {
+            if (brightnessSlider != null && brightnessSlider.value > 0.001f) yield break;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // 3. 遠ざかっていく足音を再生
+        if (enemyAwayAudio != null)
+        {
+            enemyAwayAudio.Play();
+        }
+
+        // ★明るさが0のままか監視しながら 3.0秒 待機
+        timer = 0f;
+        while (timer < 3.0f)
+        {
+            if (brightnessSlider != null && brightnessSlider.value > 0.001f) yield break;
+            timer += Time.deltaTime;
+            yield return null;
+        }
+
+        // 4. セリフ「……いなくなった……？」
+        ShowSubtitle("「……いなくなった……？」", 3.5f);
+
+        // 5. 完全撃退完了！
+        isEnemyEventSolved = true;
+        isBeingChased = false;
+        if (invisibleEnemy != null) invisibleEnemy.DefeatEnemy();
+
+        if (letterRo != null)
+        {
+            letterRo.SetActive(true);
+        }
+
+        enemySequenceCoroutine = null;
+        Debug.Log("【見えない敵イベントクリア】完全撃退し、『ろ』が出現！");
+    }
+
+    // ★途中で明るさを戻された時の追跡再開処理
+    void CancelEnemySequence()
+    {
+        if (enemySequenceCoroutine != null)
+        {
+            StopCoroutine(enemySequenceCoroutine);
+            enemySequenceCoroutine = null;
+        }
+
+        // 遠ざかる足音を即ストップ
+        if (enemyAwayAudio != null && enemyAwayAudio.isPlaying)
+        {
+            enemyAwayAudio.Stop();
+        }
+
+        // 敵の追跡状態を復活させる！
+        isBeingChased = true;
+        if (invisibleEnemy != null)
+        {
+            invisibleEnemy.isChasing = true;
+        }
+
+        ShowSubtitle("「……ダメだ、また来る！！」", 3.0f);
+        Debug.Log("【演出キャンセル】明るさが戻されたため、敵が追跡を再開します！");
     }
 
     IEnumerator FadeInNoiseSequence()
@@ -153,24 +268,24 @@ public class NoisePuzzleManager : MonoBehaviour
                 }
             }
 
-        if (!isSolved)
-        {
-            if (timer >= 10.0f && !flag10)
+            if (!isSolved)
             {
-                flag10 = true;
-                ShowSubtitle("「……なんだこの音。」", 4.0f);
+                if (timer >= 10.0f && !flag10)
+                {
+                    flag10 = true;
+                    ShowSubtitle("「……なんだこの音。」", 4.0f);
+                }
+                else if (timer >= 30.0f && !flag30)
+                {
+                    flag30 = true;
+                    ShowSubtitle("「うるさい……」", 5.0f);
+                }
+                else if (timer >= 60.0f && !flag60)
+                {
+                    flag60 = true;
+                    ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
+                }
             }
-            else if (timer >= 30.0f && !flag30)
-            {
-                flag30 = true;
-                ShowSubtitle("「うるさい……」", 5.0f);
-            }
-            else if (timer >= 60.0f && !flag60)
-            {
-                flag60 = true;
-                ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
-            }
-        }
 
             yield return null;
         }
@@ -231,13 +346,11 @@ public class NoisePuzzleManager : MonoBehaviour
         isSolved = true;
         StopAllCoroutines();
 
-        // ★進行中の音量＆字幕コルーチンを強制停止
         if (noiseCoroutine != null)
         {
             StopCoroutine(noiseCoroutine);
         }
 
-        // ★パズルクリア時、残っている全TVのライトもまとめてOFFにする
         if (tvControllers != null)
         {
             foreach (TVController tv in tvControllers)
@@ -256,7 +369,6 @@ public class NoisePuzzleManager : MonoBehaviour
         }
         if (letterKi != null) letterKi.SetActive(true);
 
-        // ★修正：ポーズ画面を閉じる前に字幕を表示するように変更
         if (SubtitleManager.Instance != null)
         {
             SubtitleManager.Instance.ShowSubtitle("「静かになった…………。」", 5.0f);
@@ -275,15 +387,12 @@ public class NoisePuzzleManager : MonoBehaviour
         Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
     }
 
-    // ★追加：スライダーを動かした時の処理
     public void OnVolumeChanged(float value)
     {
         AudioListener.volume = value;
 
-        // ノイズイベント中 且つ まだ一度も少し下げたセリフを出していない場合
         if (isIncreasing && !isSolved && !hasNoticedVolumeDown)
         {
-            // スライダーの値が0.95以下になったら気づく演出（0に到達する前）
             if (value < 0.95f && value > 0.001f)
             {
                 hasNoticedVolumeDown = true;

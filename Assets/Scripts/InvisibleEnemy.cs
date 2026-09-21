@@ -97,13 +97,21 @@ public class InvisibleEnemy : MonoBehaviour
         if (isChasing) return; // 既に追撃中なら無視
 
         isChasing = true;
+
+        // ★追跡フラグをNoisePuzzleManagerにも伝える
+        NoisePuzzleManager manager = FindObjectOfType<NoisePuzzleManager>();
+        if (manager != null)
+        {
+            manager.isBeingChased = true;
+        }
+
         if (SubtitleManager.Instance != null)
         {
             SubtitleManager.Instance.ShowSubtitle("「……！ なんだ、この足音……こっちに来てる！？」", 4.0f);
         }
     }
 
-    // ゴール到達で呼び出す撃退関数
+    // ゴール到達またはパズルクリアで呼び出す撃退関数
     public void DefeatEnemy()
     {
         if (!isChasing) return; // 追撃中でなければ無視
@@ -112,11 +120,8 @@ public class InvisibleEnemy : MonoBehaviour
         isLookedAt = false;
 
         if (footstepAudio != null) footstepAudio.Stop();
-        if (letterRo != null) letterRo.SetActive(true);
 
-        // ★ゴールゾーン到達時のセリフ
-        ShowSubtitle("「……いなくなった？」", 4.0f);
-        // ★追加：接触によるゲームオーバー事故を防ぐため、当たり判定を即座に無効化
+        // ★接触によるゲームオーバー事故を防ぐため、当たり判定を即座に無効化
         Collider enemyCollider = GetComponent<Collider>();
         if (enemyCollider != null)
         {
@@ -130,7 +135,15 @@ public class InvisibleEnemy : MonoBehaviour
             jumpscare.enabled = false;
         }
 
-        Debug.Log("【3つ目の謎クリア】敵が消滅し、『ろ』が出現！");
+        // ★追加：撃退時に「ろ」の文字を出現させる！
+        if (letterRo != null)
+        {
+            letterRo.SetActive(true);
+        }
+
+        ShowSubtitle("「……いなくなった……？」", 4.0f);
+
+        Debug.Log("【3つ目の謎クリア】敵が消滅！");
     }
 
     // プレイヤーに追いつかれたらゲームオーバー画面を表示
