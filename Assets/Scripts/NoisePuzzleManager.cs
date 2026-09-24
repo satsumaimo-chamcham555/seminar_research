@@ -31,7 +31,7 @@ public class NoisePuzzleManager : MonoBehaviour
 
     [Header("ノイズの上昇設定")]
     public float maxVolume = 1.0f;       
-    public float fadeDuration = 90.0f;   
+    public float fadeDuration = 45.0f;   
 
     private bool isSolved = false;
     private bool isIncreasing = false;
@@ -248,9 +248,9 @@ public class NoisePuzzleManager : MonoBehaviour
         isIncreasing = true;
         float timer = 0f;
 
-        bool flag10 = false;
+        bool flag5 = false;
+        bool flag15 = false;
         bool flag30 = false;
-        bool flag60 = false;
 
         while (timer < fadeDuration && !isSolved)
         {
@@ -262,27 +262,28 @@ public class NoisePuzzleManager : MonoBehaviour
             {
                 noiseAudio.volume = progress * maxVolume;
 
-                if (timer > 60.0f)
+                if (timer > 30.0f)
                 {
-                    noiseAudio.pitch = 1.0f + ((timer - 60.0f) / 30.0f) * 0.3f;
+                    noiseAudio.pitch = 1.0f + ((timer - 30.0f) / 15.0f) * 0.3f;
                 }
             }
 
             if (!isSolved)
             {
-                if (timer >= 10.0f && !flag10)
+                if (timer >= 5.0f && !flag5)
                 {
-                    flag10 = true;
+                    flag5 = true;
                     ShowSubtitle("「……なんだこの音。」", 4.0f);
+                }
+                else if (timer >= 15.0f && !flag15)
+                {
+                    flag15 = true;
+                    ShowSubtitle("「うるさい……」", 4.0f);
+
                 }
                 else if (timer >= 30.0f && !flag30)
                 {
                     flag30 = true;
-                    ShowSubtitle("「うるさい……」", 5.0f);
-                }
-                else if (timer >= 60.0f && !flag60)
-                {
-                    flag60 = true;
                     ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
                 }
             }

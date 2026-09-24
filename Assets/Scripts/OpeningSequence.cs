@@ -28,27 +28,33 @@ public class OpeningSequence : MonoBehaviour
     public float textDisplayDuration = 3.5f;
 
     private DepthOfField dofComponent;
+    private static bool isFirstPlay = true;
 
     void Start()
     {
-
-        // ★1. 最初は音をしっかり止めておく
-        if (openingAudio != null)
-        {
-            openingAudio.Stop();
-        }
-
         if (postProcessVolume != null && postProcessVolume.profile != null)
         {
             postProcessVolume.profile.TryGetSettings(out dofComponent);
         }
 
-        // 1. 最初は画面を真っ黒にしてプレイヤー操作を停止
-        if (playerMovement != null) playerMovement.canMove = false;
-        if (mouseLook != null)
+        // ★2回目以降は即座にスキップして処理を終了する（一番上に移動）
+        if (!isFirstPlay)
         {
-            mouseLook.canLook = false;
+            SkipOpening();
+            return;
         }
+
+        // 初回プレイ時のフラグ更新
+        isFirstPlay = false;
+
+        // --- 以下、初回のみ実行される初期化処理 ---
+        if (openingAudio != null)
+        {
+            openingAudio.Stop();
+        }
+
+        if (playerMovement != null) playerMovement.canMove = false;
+        if (mouseLook != null) mouseLook.canLook = false;
 
         if (fadeOverlay != null)
         {
@@ -57,7 +63,6 @@ public class OpeningSequence : MonoBehaviour
             fadeOverlay.color = initialColor;
         }
 
-        // 2. カーソルを表示・ロック解除して操作説明パネルをアクティブにする
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
@@ -66,7 +71,6 @@ public class OpeningSequence : MonoBehaviour
             tutorialPanel.SetActive(true);
         }
 
-        // 3. ★スクリプト側でボタンクリック時の処理を登録（InspectorでのOnClick設定は不要になります！）
         if (tutorialCloseButton != null)
         {
             tutorialCloseButton.onClick.RemoveAllListeners();
@@ -77,29 +81,24 @@ public class OpeningSequence : MonoBehaviour
     // ★ボタンが押されたら呼ばれる関数
     private void OnStartButtonClicked()
     {
-        // 操作説明パネルを閉じる
         if (tutorialPanel != null)
         {
             tutorialPanel.SetActive(false);
         }
 
-        // カーソルを隠して画面中央にロック
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
 
-        // ★ここで初めて音を鳴らす！
         if (openingAudio != null)
         {
             openingAudio.Play();
         }
 
-        // オープニング演出を開始！
         StartCoroutine(StartOpeningSequence());
     }
 
     IEnumerator StartOpeningSequence()
     {
-        // 暗転パネルを真っ黒で表示（念のため）
         if (fadeOverlay != null)
         {
             Color initialColor = fadeOverlay.color;
@@ -107,7 +106,6 @@ public class OpeningSequence : MonoBehaviour
             fadeOverlay.color = initialColor;
         }
 
-        // 初期状態：近くにピントを合わせ、ボカシを最大化
         if (dofComponent != null)
         {
             dofComponent.focusDistance.overrideState = true;
@@ -117,7 +115,6 @@ public class OpeningSequence : MonoBehaviour
             dofComponent.kernelSize.value = KernelSize.VeryLarge;
         }
 
-        // 2. フェードアウト＆ボカシ解除
         float timer = 0f;
         while (timer < fadeDuration)
         {
@@ -151,7 +148,6 @@ public class OpeningSequence : MonoBehaviour
             dofComponent.kernelSize.value = KernelSize.Medium;
         }
 
-        // 3. セリフ表示
         if (SubtitleManager.Instance != null)
         {
             SubtitleManager.Instance.ShowSubtitle(openingText, textDisplayDuration);
@@ -159,7 +155,53 @@ public class OpeningSequence : MonoBehaviour
 
         yield return new WaitForSeconds(textDisplayDuration);
 
-        // 4. セリフ終了後にスムーズに操作解禁
+        // スムーズに操作解禁
+        EnablePlayerControl();
+    }
+
+    // ★2回目以降（リトライ時）に呼ばれるスキップ処理
+    void SkipOpening()
+    {
+        // チュートリアルUIを非表示
+        if (tutorialPanel != null)
+        {
+            tutorialPanel.SetActive(false);
+        }
+
+        // フェード暗転を即座に透明（解除）にする
+        if (fadeOverlay != null)
+        {
+            Color c = fadeOverlay.color;
+            c.a = 0f;
+            fadeOverlay.color = c;
+        }
+
+        // 被写界深度（画面のボカシ）を通常状態に戻す
+        if (dofComponent != null)
+        {
+            dofComponent.focusDistance.overrideState = true;
+            dofComponent.focusDistance.value = 20.0f;
+            dofComponent.kernelSize.value = KernelSize.Medium;
+        }
+
+        // オープニング音も流さず停止しておく（BGM等が必要な場合はここでPlay）
+        if (openingAudio != null)
+        {
+            openingAudio.Stop();
+        }
+
+        // 即座にプレイヤー操作を可能にする
+        EnablePlayerControl();
+
+        Debug.Log("【スキップ完了】2回目以降のためオープニングをスキップしました。");
+    }
+
+    // プレイヤーの操作許可・カーソルロックを一括で行う共通処理
+    private void EnablePlayerControl()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+
         if (mouseLook != null)
         {
             mouseLook.canLook = true;
