@@ -10,6 +10,10 @@ public class FactoryRoom : MonoBehaviour
     [Header("トリガーの設定タグ")]
     public string playerTag = "Player";
 
+    // ★追加：1つ前の部屋（親）を覚えておくための変数
+    [HideInInspector]
+    public GameObject previousRoom;
+
     private bool hasSpawnedNext = false;
     private bool isDoorClosed = false;
 
@@ -36,8 +40,16 @@ public class FactoryRoom : MonoBehaviour
 
         if (factoryPrefab != null && nextSpawnPoint != null)
         {
-            // 次のファクトリーを生成して繋げる
-            Instantiate(factoryPrefab, nextSpawnPoint.position, nextSpawnPoint.rotation);
+            // 次のファクトリーを生成
+            GameObject nextRoomObj = Instantiate(factoryPrefab, nextSpawnPoint.position, nextSpawnPoint.rotation);
+            
+            // ★追加：生成された新しい部屋に「お前の1つ前の部屋は自分（この部屋）だよ」と教えてあげる
+            FactoryRoom nextRoomScript = nextRoomObj.GetComponent<FactoryRoom>();
+            if (nextRoomScript != null)
+            {
+                nextRoomScript.previousRoom = this.gameObject;
+            }
+
             Debug.Log("新しいファクトリーを生成しました。");
         }
     }
@@ -48,12 +60,15 @@ public class FactoryRoom : MonoBehaviour
 
         if (doorAnimator != null)
         {
-            // すでに実装済みのドアを閉めるトリガー（例: "Close"）を再生
             doorAnimator.SetTrigger("Close");
-            Debug.Log("ドアが閉まり、退路が断たれました。");
+            Debug.Log("ドアが閉まりました。");
         }
-        // ★追加：ドアが閉まり始めてから1秒後にこのファクトリー（部屋）全体を削除する
-        Destroy(gameObject, 1.0f);
-        Debug.Log("1秒後に古いファクトリーを削除します。");
+
+        // ★変更：自分自身ではなく「1つ前の部屋」が存在すれば、それを消去する！
+        if (previousRoom != null)
+        {
+            Destroy(previousRoom, 5.0f); // ドアが閉まりきった5秒後に消去
+            Debug.Log("2つ前の部屋（元のファクトリー）を消去しました。");
+        }
     }
 }
