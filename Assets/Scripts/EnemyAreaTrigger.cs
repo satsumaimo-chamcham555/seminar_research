@@ -10,7 +10,7 @@ public class EnemyAreaTrigger : MonoBehaviour
     [Header("敵の参照")]
     public InvisibleEnemy enemy;
 
-    // ★一度起動・クリアしたかを管理するフラグ（staticを解除）
+    // ★一度起動・クリアしたかを管理するフラグ
     private bool isTriggered = false;
 
     private void OnTriggerEnter(Collider other)
@@ -26,6 +26,11 @@ public class EnemyAreaTrigger : MonoBehaviour
                 if (!enemy.isChasing)
                 {
                     isTriggered = true; // スタートゾーンは1回踏んだら無効化
+
+                    // 【追加】敵オブジェクトを有効化（アクティブ化）する
+                    enemy.gameObject.SetActive(true);
+
+                    // 追撃開始
                     enemy.StartChasing();
                 }
             }
@@ -36,6 +41,9 @@ public class EnemyAreaTrigger : MonoBehaviour
                 {
                     isTriggered = true; // ゴール成立で無効化
                     enemy.DefeatEnemy();
+                    
+                    // 【お好みで】撃破時に敵を非表示にしたい場合は以下を有効化
+                    // enemy.gameObject.SetActive(false);
                 }
                 else
                 {
