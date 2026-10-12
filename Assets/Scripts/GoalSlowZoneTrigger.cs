@@ -22,6 +22,10 @@ public class GoalSlowZoneTrigger : MonoBehaviour
                 movement.isInSlowZone = false;
             }
 
+            if (PuzzleManager.Instance != null)
+            {
+                PuzzleManager.Instance.MarkAsCleared("Puzzle_SlowZone");
+            }
             // ゴールセリフを表示
             if (SubtitleManager.Instance != null)
             {

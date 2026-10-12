@@ -5,41 +5,41 @@ public class PuzzleManager : MonoBehaviour
 {
     public static PuzzleManager Instance;
 
-    // ★使用済みの謎の名前を記憶するリスト
-    private HashSet<string> usedPuzzleNames = new HashSet<string>();
+    // クリアした（＝一度突破した）謎のHashSet
+    private HashSet<string> clearedPuzzles = new HashSet<string>();
 
     private void Awake()
     {
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject); // シーン跨ぎやリセット時用
+            DontDestroyOnLoad(gameObject);
         }
-        else
+        else if (Instance != this)
         {
             Destroy(gameObject);
         }
     }
 
-    // 謎がすでに使われているか確認
-    public bool IsPuzzleUsed(string puzzleName)
+    // すでにクリア済み（＝出現済み）か判定
+    public bool IsCleared(string puzzleName)
     {
-        return usedPuzzleNames.Contains(puzzleName);
+        return clearedPuzzles.Contains(puzzleName);
     }
 
-    // 謎を使用済みとして登録
-    public void RegisterUsedPuzzle(string puzzleName)
+    // クリアした瞬間に呼んで記録する
+    public void MarkAsCleared(string puzzleName)
     {
-        if (!usedPuzzleNames.Contains(puzzleName))
+        if (!clearedPuzzles.Contains(puzzleName))
         {
-            usedPuzzleNames.Add(puzzleName);
-            Debug.Log($"【PuzzleManager】『{puzzleName}』を使用済みに登録しました。");
+            clearedPuzzles.Add(puzzleName);
+            Debug.Log($"【クリア完了】『{puzzleName}』はクリア済みになりました。");
         }
     }
 
-    // リトライ時などに履歴をリセットしたい場合用
-    public void ResetPuzzleHistory()
+    // ゲームを最初からリセットしたい時用
+    public void ResetAllProgress()
     {
-        usedPuzzleNames.Clear();
+        clearedPuzzles.Clear();
     }
 }

@@ -20,9 +20,10 @@ public class RandomPuzzleTrigger : MonoBehaviour
             GameObject child = transform.GetChild(i).gameObject;
             child.SetActive(false);
 
+            // まだクリアしていない謎だけをリストに追加
             if (PuzzleManager.Instance != null)
             {
-                if (!PuzzleManager.Instance.IsPuzzleUsed(child.name))
+                if (!PuzzleManager.Instance.IsCleared(child.name))
                 {
                     availablePuzzles.Add(child);
                 }
@@ -40,16 +41,10 @@ public class RandomPuzzleTrigger : MonoBehaviour
 
             selectedPuzzle.SetActive(true);
 
-            if (PuzzleManager.Instance != null)
-            {
-                PuzzleManager.Instance.RegisterUsedPuzzle(selectedPuzzle.name);
-            }
-
-            // ★TVの謎が選ばれた場合、NoisePuzzleManagerにTVの親オブジェクトを設定する
+            // TVの謎が選ばれた場合の参照セット
             NoisePuzzleManager noiseManager = FindObjectOfType<NoisePuzzleManager>();
             if (noiseManager != null)
             {
-                // アクティブ化された謎の中に "TVs" や TVController が含まれているか確認
                 Transform tvsTransform = selectedPuzzle.transform.Find("TVs");
                 if (tvsTransform != null)
                 {
@@ -61,11 +56,11 @@ public class RandomPuzzleTrigger : MonoBehaviour
                 }
             }
 
-            Debug.Log($"【部屋の謎決定】未消化の謎から『{selectedPuzzle.name}』を有効化しました。");
+            Debug.Log($"【部屋の謎決定】未クリアの謎から『{selectedPuzzle.name}』を出しました。");
         }
         else
         {
-            Debug.Log("【部屋の謎】すべての謎が出尽くしたため、この部屋には謎を配置しません。");
+            Debug.Log("【部屋の謎】全ての謎をクリアしたため、普通の部屋を配置します。");
         }
     }
 }

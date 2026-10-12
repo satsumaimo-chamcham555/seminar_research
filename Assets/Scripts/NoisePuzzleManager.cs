@@ -37,7 +37,7 @@ public class NoisePuzzleManager : MonoBehaviour
     private bool isIncreasing = false;
     private bool hasNoticedVolumeDown = false; // 音量を少し下げたセリフの既読フラグ
 
-    // ★敵イベント管理用変数（重複を削除してすっきり整理）
+    // ★敵イベント管理用変数
     private bool isEnemyEventSolved = false;   // 敵イベント完全撃退フラグ
     private Coroutine enemySequenceCoroutine;  // 撃退コルーチン管理用
     private Coroutine noiseCoroutine;          // ノイズコルーチン管理用
@@ -127,6 +127,15 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (isSolved || isIncreasing) return;
 
+        if (tvParent != null)
+        {
+            tvControllers = tvParent.GetComponentsInChildren<TVController>();
+        }
+        else
+        {
+            tvControllers = FindObjectsOfType<TVController>();
+        }
+
         if (tvControllers != null && tvControllers.Length > 0)
         {
             foreach (TVController tv in tvControllers)
@@ -148,12 +157,10 @@ public class NoisePuzzleManager : MonoBehaviour
     // ★ポーズ画面で「明るさスライダー」を動かした時の処理
     public void OnBrightnessChanged(float value)
     {
-        // 撃退演出の途中で明るさを 0 より大きく戻してしまった時（追跡再開！）
         if (value > 0.001f && enemySequenceCoroutine != null)
         {
             CancelEnemySequence();
         }
-        // 敵に追われている最中 ＆ 未撃退 ＆ 明るさが 0 になった時
         else if (isBeingChased && !isEnemyEventSolved && value <= 0.001f && enemySequenceCoroutine == null)
         {
             enemySequenceCoroutine = StartCoroutine(SolveEnemySequence());
@@ -163,14 +170,15 @@ public class NoisePuzzleManager : MonoBehaviour
     // ★明るさを0にして敵から逃げ切る一連の演出コルーチン
     IEnumerator SolveEnemySequence()
     {
-        // ※この時点ではまだ完全撃退（isEnemyEventSolved）にはしない
-
-        // 1. 追跡中の足音をストップ＆敵本体の移動を停止
+        // 1. 追跡中の足音をストップ＆敵をその場で完全停止・無効化
         if (enemyChaseAudio != null) enemyChaseAudio.Stop();
         if (invisibleEnemy != null)
         {
             invisibleEnemy.isChasing = false;
             if (invisibleEnemy.footstepAudio != null) invisibleEnemy.footstepAudio.Stop();
+
+            // ★絶対安全対策：敵のGameObject自体を一旦オフ（非表示）にして物理接触を物理的に不可能な状態にする！
+            invisibleEnemy.gameObject.SetActive(false);
         }
 
         // 2. セリフ「……足音が止まった？」
@@ -180,7 +188,11 @@ public class NoisePuzzleManager : MonoBehaviour
         float timer = 0f;
         while (timer < 2.5f)
         {
-            if (brightnessSlider != null && brightnessSlider.value > 0.001f) yield break;
+            if (brightnessSlider != null && brightnessSlider.value > 0.001f)
+            {
+                RestoreEnemyState();
+                yield break;
+            }
             timer += Time.deltaTime;
             yield return null;
         }
@@ -195,7 +207,11 @@ public class NoisePuzzleManager : MonoBehaviour
         timer = 0f;
         while (timer < 3.0f)
         {
-            if (brightnessSlider != null && brightnessSlider.value > 0.001f) yield break;
+            if (brightnessSlider != null && brightnessSlider.value > 0.001f)
+            {
+                RestoreEnemyState();
+                yield break;
+            }
             timer += Time.deltaTime;
             yield return null;
         }
@@ -206,7 +222,14 @@ public class NoisePuzzleManager : MonoBehaviour
         // 5. 完全撃退完了！
         isEnemyEventSolved = true;
         isBeingChased = false;
-        if (invisibleEnemy != null) invisibleEnemy.DefeatEnemy();
+        
+        // DefeatEnemy を呼ぶ前に一瞬アクティブにして撃退処理を通す
+        if (invisibleEnemy != null)
+        {
+            invisibleEnemy.gameObject.SetActive(true);
+            invisibleEnemy.DefeatEnemy();
+            invisibleEnemy.gameObject.SetActive(false); // 完全に消去
+        }
 
         if (letterRo != null)
         {
@@ -215,6 +238,29 @@ public class NoisePuzzleManager : MonoBehaviour
 
         enemySequenceCoroutine = null;
         Debug.Log("【見えない敵イベントクリア】完全撃退し、『ろ』が出現！");
+    }
+
+    // ★途中で明るさを戻した時に敵を再出現・再有効化する処理
+    private void RestoreEnemyState()
+    {
+        if (invisibleEnemy != null)
+        {
+            invisibleEnemy.gameObject.SetActive(true);
+            invisibleEnemy.isChasing = true;
+        }
+    }
+
+    // ★途中で明るさを戻した時にコライダーを再有効化する関数
+    private void RestoreEnemyCollider()
+    {
+        if (invisibleEnemy != null)
+        {
+            Collider enemyCollider = invisibleEnemy.GetComponent<Collider>();
+            if (enemyCollider != null)
+            {
+                enemyCollider.enabled = true;
+            }
+        }
     }
 
     // ★途中で明るさを戻された時の追跡再開処理
@@ -226,13 +272,11 @@ public class NoisePuzzleManager : MonoBehaviour
             enemySequenceCoroutine = null;
         }
 
-        // 遠ざかる足音を即ストップ
         if (enemyAwayAudio != null && enemyAwayAudio.isPlaying)
         {
             enemyAwayAudio.Stop();
         }
 
-        // 敵の追跡状態を復活させる！
         isBeingChased = true;
         if (invisibleEnemy != null)
         {
@@ -279,7 +323,6 @@ public class NoisePuzzleManager : MonoBehaviour
                 {
                     flag15 = true;
                     ShowSubtitle("「うるさい……」", 4.0f);
-
                 }
                 else if (timer >= 30.0f && !flag30)
                 {
@@ -301,6 +344,7 @@ public class NoisePuzzleManager : MonoBehaviour
             GameOver();
         }
     }
+
     void ShowSubtitle(string text, float duration)
     {
         if (SubtitleManager.Instance != null)
@@ -344,7 +388,6 @@ public class NoisePuzzleManager : MonoBehaviour
     public void SolvePuzzle()
     {
         isSolved = true;
-        //StopAllCoroutines();
 
         if (noiseCoroutine != null)
         {
@@ -368,6 +411,11 @@ public class NoisePuzzleManager : MonoBehaviour
             noiseAudio.pitch = 1.0f;
         }
         if (letterKi != null) letterKi.SetActive(true);
+
+        if (PuzzleManager.Instance != null)
+        {
+            PuzzleManager.Instance.MarkAsCleared("Puzzle_TV"); 
+        }
 
         if (SubtitleManager.Instance != null)
         {

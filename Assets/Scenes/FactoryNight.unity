@@ -76036,7 +76036,7 @@ PrefabInstance:
       objectReference: {fileID: 924591304}
     - target: {fileID: 1372562087429845333, guid: 9928ef3578cfc4e20bef0b038861e6fc, type: 3}
       propertyPath: m_Name
-      value: NoisePuzzle
+      value: Puzzle_TV
       objectReference: {fileID: 0}
     - target: {fileID: 2398529746312679925, guid: 9928ef3578cfc4e20bef0b038861e6fc, type: 3}
       propertyPath: interactUI
@@ -76114,14 +76114,6 @@ PrefabInstance:
       propertyPath: noisePuzzleManager
       value: 
       objectReference: {fileID: 924591304}
-    - target: {fileID: 9131910275416658000, guid: 9928ef3578cfc4e20bef0b038861e6fc, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 9131910275416658000, guid: 9928ef3578cfc4e20bef0b038861e6fc, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.05
-      objectReference: {fileID: 0}
     - target: {fileID: 9131910275416658000, guid: 9928ef3578cfc4e20bef0b038861e6fc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.41778898
@@ -78180,11 +78172,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2330236021881531263, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
       propertyPath: m_Name
-      value: EnemyPuzzle
-      objectReference: {fileID: 0}
-    - target: {fileID: 2330236021881531263, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
-      propertyPath: m_IsActive
-      value: 0
+      value: Puzzle_Enemy
       objectReference: {fileID: 0}
     - target: {fileID: 2823220336638745138, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
       propertyPath: letterRo
@@ -78202,18 +78190,6 @@ PrefabInstance:
       propertyPath: jumpscareVolume
       value: 
       objectReference: {fileID: 1733177752}
-    - target: {fileID: 5175103722170574972, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5186630461834167880, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 5186630461834167880, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.05
-      objectReference: {fileID: 0}
     - target: {fileID: 5186630461834167880, guid: 952800cb8ccf64f76b117118d4b8dc5d, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.41778898
@@ -78268,14 +78244,6 @@ PrefabInstance:
     m_TransformParent: {fileID: 1371322398}
     m_Modifications:
     - target: {fileID: 4658250631493844165, guid: 85d04c7723a8e4fca9b3f512c6b97d83, type: 3}
-      propertyPath: m_LocalScale.x
-      value: 0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 4658250631493844165, guid: 85d04c7723a8e4fca9b3f512c6b97d83, type: 3}
-      propertyPath: m_LocalScale.y
-      value: 0.05
-      objectReference: {fileID: 0}
-    - target: {fileID: 4658250631493844165, guid: 85d04c7723a8e4fca9b3f512c6b97d83, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.41778898
       objectReference: {fileID: 0}
@@ -78317,7 +78285,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5510872303119934043, guid: 85d04c7723a8e4fca9b3f512c6b97d83, type: 3}
       propertyPath: m_Name
-      value: SlowPuzzle
+      value: Puzzle_SlowZone
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

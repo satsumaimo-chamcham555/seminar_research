@@ -140,6 +140,11 @@ public class InvisibleEnemy : MonoBehaviour
         {
             letterRo.SetActive(true);
         }
+        // ★追加：見えない敵の謎のクリア通知（※Cube配下のアクティブ化対象オブジェクト名を指定）
+        if (PuzzleManager.Instance != null)
+        {
+            PuzzleManager.Instance.MarkAsCleared("Puzzle_Enemy");
+        }
 
         ShowSubtitle("「……いなくなった……？」", 4.0f);
 
