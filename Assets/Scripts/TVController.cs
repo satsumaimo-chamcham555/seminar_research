@@ -11,14 +11,14 @@ public class TVController : MonoBehaviour
     public GameObject tvScreenEmission;   
 
     [Header("パズルマネージャー参照")]
-    public NoisePuzzleManager noisePuzzleManager; // ★追加：マネージャーを参照
+    public NoisePuzzleManager noisePuzzleManager;
 
     [Header("キー設定")]
     public KeyCode interactKey = KeyCode.E;
 
     private bool isPlayerInside = false;   
     private bool isTVOn = false;
-    private bool isTVInteractive = false;     // ★ノイズが始まっているかのフラグ
+    private bool isTVInteractive = false;     // ノイズが始まっているかのフラグ
 
     void Start()
     {
@@ -27,14 +27,20 @@ public class TVController : MonoBehaviour
             interactUI.SetActive(false);
         }
 
-        // ★最初はTVのライトを切っておく（ノイズ開始時に点灯させるため）
+        // ★マネージャーの参照が空なら自動で探す
+        if (noisePuzzleManager == null)
+        {
+            noisePuzzleManager = FindObjectOfType<NoisePuzzleManager>();
+        }
+
+        // ★最初はTVのライト・画面発光を切っておく
         if (tvLight != null) tvLight.enabled = false;
         if (tvScreenEmission != null) tvScreenEmission.SetActive(false);
     }
 
     void Update()
     {
-        // ★ノイズが開始されていて(isTVInteractive)、TVがついていて、プレイヤーが範囲内にいる時だけEキーを受け付ける
+        // ノイズ開始済み ＆ 範囲内 ＆ TV点灯中に Eキー で消す
         if (isTVInteractive && isPlayerInside && isTVOn && Input.GetKeyDown(interactKey))
         {
             TurnOffTV();
@@ -47,7 +53,7 @@ public class TVController : MonoBehaviour
         {
             isPlayerInside = true;
 
-            // ★ノイズ開始後かつTVがついている時のみ「E:消す」を表示
+            // ノイズ開始後かつTVがついている時のみ「E:消す」を表示
             if (isTVInteractive && isTVOn && interactUI != null)
             {
                 interactUI.SetActive(true);
@@ -64,35 +70,34 @@ public class TVController : MonoBehaviour
         }
     }
 
-    // ★ノイズイベント開始時にTVをつける関数
+    // ★ノイズイベント開始時にTVをつける関数（NoisePuzzleManagerから呼ばれる）
     public void TurnOnTV()
     {
         isTVOn = true;
-        isTVInteractive = true; // ★これで初めてインタラクト可能になる
+        isTVInteractive = true; // これでインタラクト可能になる
 
         if (tvLight != null) tvLight.enabled = true;
         if (tvScreenEmission != null) tvScreenEmission.SetActive(true);
         if (tvAudioSource != null && !tvAudioSource.isPlaying) tvAudioSource.Play();
 
-        // 既にプレイヤーがトリガー内に立っていた場合、UIを表示する
         if (isPlayerInside && interactUI != null)
         {
             interactUI.SetActive(true);
         }
     }
 
-    // TVの電源を消す処理
+    // TVの電源を消す処理（Eキー押下時）
     void TurnOffTV()
     {
         isTVOn = false;
-        isTVInteractive = false; // イベント終了
+        isTVInteractive = false;
 
         if (tvLight != null) tvLight.enabled = false;
         if (tvAudioSource != null) tvAudioSource.Stop();
         if (tvScreenEmission != null) tvScreenEmission.SetActive(false);
         if (interactUI != null) interactUI.SetActive(false);
 
-        // ★パズル側に「クリアした」と通知する！
+        // ★パズルマネージャーにクリアを伝える！
         if (noisePuzzleManager != null)
         {
             noisePuzzleManager.SolvePuzzle();
@@ -100,7 +105,8 @@ public class TVController : MonoBehaviour
 
         Debug.Log("TVの電源をオフにして謎解きを完了しました！");
     }
-    // ★マネージャーから一括消去される際の処理
+
+    // マネージャーから一括消去される際の処理
     public void TurnOffTVByManager()
     {
         isTVOn = false;
