@@ -13,13 +13,7 @@ public class NoisePuzzleManager : MonoBehaviour
     public Slider brightnessSlider; // 明るさスライダー（ポーズ画面内）
     public AudioSource noiseAudio;
     public GameObject letterKi;
-    public GameObject letterRo;     // 『ろ』の文字（アイテム）
-
-    [Header("見えない敵・足音演出参照")]
-    public InvisibleEnemy invisibleEnemy;
-    public AudioSource enemyChaseAudio; // 追われてる時の足音
-    public AudioSource enemyAwayAudio;  // 遠ざかっていく足音（SE）
-    public bool isBeingChased = false;  // 敵に追われている最中かのフラグ
+    public GameObject letterRo;     // 『ろ』の文字（敵側に未設定の場合のフォールバック）
 
     [Header("TV参照")]
     public Transform tvParent; // 親オブジェクト「TVs」
@@ -39,9 +33,6 @@ public class NoisePuzzleManager : MonoBehaviour
     private bool isIncreasing = false;
     private bool hasNoticedVolumeDown = false; // 音量を下げたセリフの既読フラグ
 
-    // 敵イベント管理
-    private bool isEnemyEventSolved = false;
-    private Coroutine enemySequenceCoroutine;
     private Coroutine noiseCoroutine;
 
     private bool IsPaused => pausePanel != null && pausePanel.activeSelf;
@@ -71,7 +62,6 @@ public class NoisePuzzleManager : MonoBehaviour
 
         if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
         if (playerMovement == null) playerMovement = FindObjectOfType<PlayerMovement>();
-        if (invisibleEnemy == null) invisibleEnemy = FindObjectOfType<InvisibleEnemy>();
     }
 
     void Update()
@@ -105,12 +95,6 @@ public class NoisePuzzleManager : MonoBehaviour
             volumeSlider.onValueChanged.RemoveAllListeners();
             volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
             AudioListener.volume = volumeSlider.value;
-        }
-
-        if (brightnessSlider != null)
-        {
-            brightnessSlider.onValueChanged.RemoveAllListeners();
-            brightnessSlider.onValueChanged.AddListener(OnBrightnessChanged);
         }
     }
 
@@ -274,126 +258,16 @@ public class NoisePuzzleManager : MonoBehaviour
     }
 
     // ------------------------------------------------------------
-    // 見えない敵：明るさ0で逃げ切る謎
+    // 見えない敵との連携（明るさ0での挙動は InvisibleEnemy 側が管理）
     // ------------------------------------------------------------
 
-    /// <summary>ポーズ画面で明るさスライダーを動かした時の処理</summary>
-    public void OnBrightnessChanged(float value)
+    /// <summary>ポーズ画面の明るさスライダーが0か（InvisibleEnemy が毎フレーム参照する）</summary>
+    public bool IsBrightnessZero => brightnessSlider != null && brightnessSlider.value <= SliderZeroThreshold;
+
+    /// <summary>敵側に『ろ』が設定されていない場合のフォールバック表示</summary>
+    public void ShowLetterRo()
     {
-        if (value > SliderZeroThreshold && enemySequenceCoroutine != null)
-        {
-            CancelEnemySequence();
-        }
-        else if (isBeingChased && !isEnemyEventSolved && value <= SliderZeroThreshold && enemySequenceCoroutine == null)
-        {
-            enemySequenceCoroutine = StartCoroutine(SolveEnemySequence());
-        }
-    }
-
-    IEnumerator SolveEnemySequence()
-    {
-        // 1. 追跡中の足音を止め、敵を完全停止＆非表示（物理接触の事故防止）
-        if (enemyChaseAudio != null) enemyChaseAudio.Stop();
-        if (invisibleEnemy != null)
-        {
-            invisibleEnemy.isChasing = false;
-            if (invisibleEnemy.footstepAudio != null) invisibleEnemy.footstepAudio.Stop();
-            invisibleEnemy.gameObject.SetActive(false);
-        }
-
-        // 2. 「足音が止まった？」→ 明るさ0のまま2.5秒待機
-        ShowSubtitle("「……足音が止まった？」", 3.0f);
-
-        bool completed = false;
-        yield return WaitWhileBrightnessZero(2.5f, result => completed = result);
-        if (!completed)
-        {
-            RestoreEnemyState();
-            yield break;
-        }
-
-        // 3. 遠ざかる足音 → 明るさ0のまま3.0秒待機
-        if (enemyAwayAudio != null) enemyAwayAudio.Play();
-
-        yield return WaitWhileBrightnessZero(3.0f, result => completed = result);
-        if (!completed)
-        {
-            RestoreEnemyState();
-            yield break;
-        }
-
-        // 4. 完全撃退
-        ShowSubtitle("「……いなくなった……？」", 3.5f);
-
-        isEnemyEventSolved = true;
-        isBeingChased = false;
-
-        // DefeatEnemy を通すため一瞬アクティブにしてから完全に消去
-        if (invisibleEnemy != null)
-        {
-            invisibleEnemy.gameObject.SetActive(true);
-            invisibleEnemy.DefeatEnemy();
-            invisibleEnemy.gameObject.SetActive(false);
-        }
-
         if (letterRo != null) letterRo.SetActive(true);
-
-        enemySequenceCoroutine = null;
-        Debug.Log("【見えない敵イベントクリア】完全撃退し、『ろ』が出現！");
-    }
-
-    /// <summary>
-    /// 明るさが0のまま duration 秒経過したら true、
-    /// 途中で明るさが戻されたら false を onFinished に渡す。
-    /// </summary>
-    IEnumerator WaitWhileBrightnessZero(float duration, System.Action<bool> onFinished)
-    {
-        float timer = 0f;
-        while (timer < duration)
-        {
-            if (brightnessSlider != null && brightnessSlider.value > SliderZeroThreshold)
-            {
-                onFinished(false);
-                yield break;
-            }
-            timer += Time.deltaTime;
-            yield return null;
-        }
-        onFinished(true);
-    }
-
-    /// <summary>途中で明るさを戻した時に敵を再出現させる</summary>
-    void RestoreEnemyState()
-    {
-        if (invisibleEnemy != null)
-        {
-            invisibleEnemy.gameObject.SetActive(true);
-            invisibleEnemy.isChasing = true;
-        }
-    }
-
-    /// <summary>撃退演出の途中で明るさを戻された時の追跡再開処理</summary>
-    void CancelEnemySequence()
-    {
-        if (enemySequenceCoroutine != null)
-        {
-            StopCoroutine(enemySequenceCoroutine);
-            enemySequenceCoroutine = null;
-        }
-
-        if (enemyAwayAudio != null && enemyAwayAudio.isPlaying)
-        {
-            enemyAwayAudio.Stop();
-        }
-
-        isBeingChased = true;
-        if (invisibleEnemy != null)
-        {
-            invisibleEnemy.isChasing = true;
-        }
-
-        ShowSubtitle("「……ダメだ、また来る！！」", 3.0f);
-        Debug.Log("【演出キャンセル】明るさが戻されたため、敵が追跡を再開します！");
     }
 
     // ------------------------------------------------------------

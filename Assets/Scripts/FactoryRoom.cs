@@ -6,6 +6,7 @@ public class FactoryRoom : MonoBehaviour
     public GameObject factoryPrefab;    // 生成するファクトリーのプレハブ
     public Transform nextSpawnPoint;    // 次の部屋を出す位置
     public Animator doorAnimator;       // 閉じるドアのAnimator
+    public AudioSource doorAudioSource;//閉まるドアの音源
 
     [Header("トリガーの設定タグ")]
     public string playerTag = "Player";
@@ -52,6 +53,11 @@ public class FactoryRoom : MonoBehaviour
         if (doorAnimator != null)
         {
             doorAnimator.SetTrigger("Close");
+        }
+        //ドア閉まる音の再生
+        if (doorAudioSource != null)
+        {
+            doorAudioSource.Play();
         }
 
         // 1つ前の部屋が存在すれば1秒後に消去

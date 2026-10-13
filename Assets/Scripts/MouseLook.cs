@@ -13,8 +13,12 @@ public class MouseLook : MonoBehaviour
     public LayerMask obstacleMask;         // 壁などの遮蔽物レイヤー（壁越し判定を防ぐ用）
     public float maxCheckDistance = 50.0f; // 見える最大距離
 
+    private const float MirrorCacheRefreshInterval = 1.0f; // 鏡リストの再検索間隔（秒）
+
     private float xRotation = 0f;
     private InvisibleEnemy currentEnemy;
+    private GameObject[] mirrorCache = new GameObject[0];
+    private float nextMirrorRefreshTime = 0f;
     private PlayerMovement playerMovement;
     private bool hasCommentedMirror = false;
 
@@ -94,7 +98,7 @@ public class MouseLook : MonoBehaviour
     /// <summary>鏡（Mirrorタグ）を見ているかをプレイヤーに伝える</summary>
     void UpdateMirrorLook()
     {
-        bool isLookingAtMirror = IsTagObjectInScreen("Mirror");
+        bool isLookingAtMirror = IsMirrorInScreen();
 
         if (isLookingAtMirror
             && playerMovement != null
@@ -113,7 +117,8 @@ public class MouseLook : MonoBehaviour
 
     InvisibleEnemy FindEnemyInScreen()
     {
-        foreach (InvisibleEnemy enemy in FindObjectsOfType<InvisibleEnemy>())
+        // 毎フレームの FindObjectsOfType を避け、自己登録リストを参照する
+        foreach (InvisibleEnemy enemy in InvisibleEnemy.ActiveEnemies)
         {
             if (IsTargetInScreen(enemy.transform.position))
             {
@@ -123,11 +128,24 @@ public class MouseLook : MonoBehaviour
         return null;
     }
 
-    bool IsTagObjectInScreen(string tagName)
+    /// <summary>
+    /// 鏡が画面内にあるか。タグ検索は一定間隔でだけ行い、
+    /// 毎フレームはキャッシュしたリストを調べる（部屋の生成で鏡が増えても追従できる）。
+    /// </summary>
+    bool IsMirrorInScreen()
     {
-        foreach (GameObject target in GameObject.FindGameObjectsWithTag(tagName))
+        if (Time.time >= nextMirrorRefreshTime)
         {
-            if (IsTargetInScreen(target.transform.position))
+            mirrorCache = GameObject.FindGameObjectsWithTag("Mirror");
+            nextMirrorRefreshTime = Time.time + MirrorCacheRefreshInterval;
+        }
+
+        foreach (GameObject mirror in mirrorCache)
+        {
+            // 破棄された／非アクティブになったものは除外
+            if (mirror == null || !mirror.activeInHierarchy) continue;
+
+            if (IsTargetInScreen(mirror.transform.position))
             {
                 return true;
             }
