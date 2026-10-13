@@ -1,15 +1,28 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI; // Textを使うために追加
+using UnityEngine.UI;
 
 public class SubtitleManager : MonoBehaviour
 {
     public static SubtitleManager Instance;
 
     [Header("UI参照")]
-    public Text subtitleText; // TextMeshProUGUI から Text に変更
+    public Text subtitleText;
 
     private Coroutine currentCoroutine;
+
+    /// <summary>
+    /// null チェック込みの字幕表示ヘルパー（新規追加）。
+    /// 各クラスにあった「if (SubtitleManager.Instance != null) ...」と
+    /// private ShowSubtitle の重複をこれに統一。
+    /// Instance が存在したかどうかを返す。
+    /// </summary>
+    public static bool Show(string text, float duration = 4.0f)
+    {
+        if (Instance == null) return false;
+        Instance.ShowSubtitle(text, duration);
+        return true;
+    }
 
     void Awake()
     {

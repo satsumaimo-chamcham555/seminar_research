@@ -10,72 +10,64 @@ public class NoisePuzzleManager : MonoBehaviour
     public GameObject END1Panel;
     public Button retryButton;
     public Slider volumeSlider;
-    public Slider brightnessSlider; // ★明るさスライダー（ポーズ画面内）
+    public Slider brightnessSlider; // 明るさスライダー（ポーズ画面内）
     public AudioSource noiseAudio;
     public GameObject letterKi;
-    public GameObject letterRo;     // ★『ろ』の文字（アイテム）
+    public GameObject letterRo;     // 『ろ』の文字（アイテム）
 
     [Header("見えない敵・足音演出参照")]
-    public InvisibleEnemy invisibleEnemy; // ★見えない敵の参照
-    public AudioSource enemyChaseAudio; // ★追われてる時の足音
-    public AudioSource enemyAwayAudio;  // ★遠ざかっていく足音（SE）
-    public bool isBeingChased = false;   // ★敵に追われている最中かのフラグ
+    public InvisibleEnemy invisibleEnemy;
+    public AudioSource enemyChaseAudio; // 追われてる時の足音
+    public AudioSource enemyAwayAudio;  // 遠ざかっていく足音（SE）
+    public bool isBeingChased = false;  // 敵に追われている最中かのフラグ
 
     [Header("TV参照")]
-    public Transform tvParent; // ★ここに親オブジェクト「TVs」を1個だけセット！
-    private TVController[] tvControllers; // 自動取得用の配列
+    public Transform tvParent; // 親オブジェクト「TVs」
+    private TVController[] tvControllers;
 
     [Header("プレイヤー参照（操作停止用）")]
     public MouseLook mouseLook;
-    public PlayerMovement playerMovement; 
+    public PlayerMovement playerMovement;
 
     [Header("ノイズの上昇設定")]
-    public float maxVolume = 1.0f;       
-    public float fadeDuration = 45.0f;   
+    public float maxVolume = 1.0f;
+    public float fadeDuration = 45.0f;
+
+    private const float SliderZeroThreshold = 0.001f;
 
     private bool isSolved = false;
     private bool isIncreasing = false;
-    private bool hasNoticedVolumeDown = false; // 音量を少し下げたセリフの既読フラグ
+    private bool hasNoticedVolumeDown = false; // 音量を下げたセリフの既読フラグ
 
-    // ★敵イベント管理用変数
-    private bool isEnemyEventSolved = false;   // 敵イベント完全撃退フラグ
-    private Coroutine enemySequenceCoroutine;  // 撃退コルーチン管理用
-    private Coroutine noiseCoroutine;          // ノイズコルーチン管理用
+    // 敵イベント管理
+    private bool isEnemyEventSolved = false;
+    private Coroutine enemySequenceCoroutine;
+    private Coroutine noiseCoroutine;
+
+    private bool IsPaused => pausePanel != null && pausePanel.activeSelf;
+
+    // ------------------------------------------------------------
+    // Unity ライフサイクル
+    // ------------------------------------------------------------
 
     void Start()
     {
         if (letterKi != null) letterKi.SetActive(false);
         if (letterRo != null) letterRo.SetActive(false);
         if (END1Panel != null) END1Panel.SetActive(false);
-        
+
         if (tvParent != null)
         {
-            tvControllers = tvParent.GetComponentsInChildren<TVController>();
+            tvControllers = CollectTvControllers();
         }
+
         if (noiseAudio != null)
         {
             noiseAudio.volume = 0f;
             noiseAudio.pitch = 1.0f;
         }
 
-        if (retryButton != null)
-        {
-            retryButton.onClick.RemoveAllListeners();
-            retryButton.onClick.AddListener(RestartScene);
-        }
-
-        if (volumeSlider != null)
-        {
-            volumeSlider.onValueChanged.RemoveAllListeners();
-            volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
-            AudioListener.volume = volumeSlider.value; 
-        }
-
-        if (brightnessSlider != null)
-        {
-            brightnessSlider.onValueChanged.RemoveAllListeners();
-            brightnessSlider.onValueChanged.AddListener(OnBrightnessChanged);
-        }
+        SetupUiListeners();
 
         if (mouseLook == null) mouseLook = FindObjectOfType<MouseLook>();
         if (playerMovement == null) playerMovement = FindObjectOfType<PlayerMovement>();
@@ -88,38 +80,81 @@ public class NoisePuzzleManager : MonoBehaviour
 
         if (Input.GetKeyDown(KeyCode.Tab))
         {
-            if (pausePanel != null)
-            {
-                bool isActive = !pausePanel.activeSelf;
-                pausePanel.SetActive(isActive);
-
-                if (isActive)
-                {
-                    if (mouseLook != null) mouseLook.isChatActive = true;
-                    if (playerMovement != null) playerMovement.canMove = false;
-
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
-                }
-                else
-                {
-                    if (mouseLook != null) mouseLook.isChatActive = false;
-                    if (playerMovement != null) playerMovement.canMove = true;
-
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
-                }
-            }
+            TogglePause();
         }
 
         if (isSolved) return;
 
-        if (isIncreasing && pausePanel != null && pausePanel.activeSelf && volumeSlider != null)
+        // ポーズ画面で音量を0にしたらクリア
+        if (isIncreasing && IsPaused && volumeSlider != null && volumeSlider.value <= SliderZeroThreshold)
         {
-            if (volumeSlider.value <= 0.001f)
-            {
-                SolvePuzzle();
-            }
+            SolvePuzzle();
+        }
+    }
+
+    void SetupUiListeners()
+    {
+        if (retryButton != null)
+        {
+            retryButton.onClick.RemoveAllListeners();
+            retryButton.onClick.AddListener(RestartScene);
+        }
+
+        if (volumeSlider != null)
+        {
+            volumeSlider.onValueChanged.RemoveAllListeners();
+            volumeSlider.onValueChanged.AddListener(OnVolumeChanged);
+            AudioListener.volume = volumeSlider.value;
+        }
+
+        if (brightnessSlider != null)
+        {
+            brightnessSlider.onValueChanged.RemoveAllListeners();
+            brightnessSlider.onValueChanged.AddListener(OnBrightnessChanged);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // ポーズ・プレイヤー操作
+    // ------------------------------------------------------------
+
+    void TogglePause()
+    {
+        if (pausePanel == null) return;
+        SetPaused(!pausePanel.activeSelf);
+    }
+
+    void SetPaused(bool paused)
+    {
+        pausePanel.SetActive(paused);
+        SetPlayerInputBlocked(paused);
+        CursorUtil.SetLocked(!paused);
+    }
+
+    void SetPlayerInputBlocked(bool blocked)
+    {
+        if (mouseLook != null) mouseLook.isChatActive = blocked;
+        if (playerMovement != null) playerMovement.canMove = !blocked;
+    }
+
+    // ------------------------------------------------------------
+    // TVノイズの謎
+    // ------------------------------------------------------------
+
+    TVController[] CollectTvControllers()
+    {
+        return tvParent != null
+            ? tvParent.GetComponentsInChildren<TVController>()
+            : FindObjectsOfType<TVController>();
+    }
+
+    void ForEachTv(System.Action<TVController> action)
+    {
+        if (tvControllers == null) return;
+
+        foreach (TVController tv in tvControllers)
+        {
+            if (tv != null) action(tv);
         }
     }
 
@@ -127,25 +162,8 @@ public class NoisePuzzleManager : MonoBehaviour
     {
         if (isSolved || isIncreasing) return;
 
-        if (tvParent != null)
-        {
-            tvControllers = tvParent.GetComponentsInChildren<TVController>();
-        }
-        else
-        {
-            tvControllers = FindObjectsOfType<TVController>();
-        }
-
-        if (tvControllers != null && tvControllers.Length > 0)
-        {
-            foreach (TVController tv in tvControllers)
-            {
-                if (tv != null)
-                {
-                    tv.TurnOnTV();
-                }
-            }
-        }
+        tvControllers = CollectTvControllers();
+        ForEachTv(tv => tv.TurnOnTV());
 
         if (noiseAudio != null)
         {
@@ -154,94 +172,198 @@ public class NoisePuzzleManager : MonoBehaviour
         }
     }
 
-    // ★ポーズ画面で「明るさスライダー」を動かした時の処理
+    IEnumerator FadeInNoiseSequence()
+    {
+        isIncreasing = true;
+        float timer = 0f;
+
+        bool flag5 = false;
+        bool flag15 = false;
+        bool flag30 = false;
+
+        while (timer < fadeDuration && !isSolved)
+        {
+            timer += Time.deltaTime;
+
+            if (noiseAudio != null)
+            {
+                float progress = Mathf.Clamp01(timer / fadeDuration);
+                noiseAudio.volume = progress * maxVolume;
+
+                if (timer > 30.0f)
+                {
+                    noiseAudio.pitch = 1.0f + ((timer - 30.0f) / 15.0f) * 0.3f;
+                }
+            }
+
+            if (timer >= 5.0f && !flag5)
+            {
+                flag5 = true;
+                ShowSubtitle("「……なんだこの音。」", 4.0f);
+            }
+            else if (timer >= 15.0f && !flag15)
+            {
+                flag15 = true;
+                ShowSubtitle("「うるさい……」", 4.0f);
+            }
+            else if (timer >= 30.0f && !flag30)
+            {
+                flag30 = true;
+                ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
+            }
+
+            yield return null;
+        }
+
+        if (!isSolved)
+        {
+            if (noiseAudio != null) noiseAudio.volume = maxVolume;
+
+            ShowSubtitle("「もう、ダメだ……」", 3.0f);
+            yield return new WaitForSeconds(2.0f);
+
+            GameOver();
+        }
+    }
+
+    public void SolvePuzzle()
+    {
+        isSolved = true;
+
+        if (noiseCoroutine != null)
+        {
+            StopCoroutine(noiseCoroutine);
+        }
+
+        ForEachTv(tv => tv.TurnOffTVByManager());
+
+        if (noiseAudio != null)
+        {
+            noiseAudio.Stop();
+            noiseAudio.pitch = 1.0f;
+        }
+        if (letterKi != null) letterKi.SetActive(true);
+
+        if (PuzzleManager.Instance != null)
+        {
+            PuzzleManager.Instance.MarkAsCleared("Puzzle_TV");
+        }
+
+        ShowSubtitle("「静かになった…………。」", 5.0f);
+
+        if (IsPaused)
+        {
+            SetPaused(false);
+        }
+
+        Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
+    }
+
+    public void OnVolumeChanged(float value)
+    {
+        AudioListener.volume = value;
+
+        if (isIncreasing && !isSolved && !hasNoticedVolumeDown)
+        {
+            if (value < 0.95f && value > SliderZeroThreshold)
+            {
+                hasNoticedVolumeDown = true;
+                ShowSubtitle("「……あれ？ 今、音が……」", 4.0f);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------
+    // 見えない敵：明るさ0で逃げ切る謎
+    // ------------------------------------------------------------
+
+    /// <summary>ポーズ画面で明るさスライダーを動かした時の処理</summary>
     public void OnBrightnessChanged(float value)
     {
-        if (value > 0.001f && enemySequenceCoroutine != null)
+        if (value > SliderZeroThreshold && enemySequenceCoroutine != null)
         {
             CancelEnemySequence();
         }
-        else if (isBeingChased && !isEnemyEventSolved && value <= 0.001f && enemySequenceCoroutine == null)
+        else if (isBeingChased && !isEnemyEventSolved && value <= SliderZeroThreshold && enemySequenceCoroutine == null)
         {
             enemySequenceCoroutine = StartCoroutine(SolveEnemySequence());
         }
     }
 
-    // ★明るさを0にして敵から逃げ切る一連の演出コルーチン
     IEnumerator SolveEnemySequence()
     {
-        // 1. 追跡中の足音をストップ＆敵をその場で完全停止・無効化
+        // 1. 追跡中の足音を止め、敵を完全停止＆非表示（物理接触の事故防止）
         if (enemyChaseAudio != null) enemyChaseAudio.Stop();
         if (invisibleEnemy != null)
         {
             invisibleEnemy.isChasing = false;
             if (invisibleEnemy.footstepAudio != null) invisibleEnemy.footstepAudio.Stop();
-
-            // ★絶対安全対策：敵のGameObject自体を一旦オフ（非表示）にして物理接触を物理的に不可能な状態にする！
             invisibleEnemy.gameObject.SetActive(false);
         }
 
-        // 2. セリフ「……足音が止まった？」
+        // 2. 「足音が止まった？」→ 明るさ0のまま2.5秒待機
         ShowSubtitle("「……足音が止まった？」", 3.0f);
 
-        // ★明るさが0のままか監視しながら 2.5秒 待機
-        float timer = 0f;
-        while (timer < 2.5f)
+        bool completed = false;
+        yield return WaitWhileBrightnessZero(2.5f, result => completed = result);
+        if (!completed)
         {
-            if (brightnessSlider != null && brightnessSlider.value > 0.001f)
-            {
-                RestoreEnemyState();
-                yield break;
-            }
-            timer += Time.deltaTime;
-            yield return null;
+            RestoreEnemyState();
+            yield break;
         }
 
-        // 3. 遠ざかっていく足音を再生
-        if (enemyAwayAudio != null)
+        // 3. 遠ざかる足音 → 明るさ0のまま3.0秒待機
+        if (enemyAwayAudio != null) enemyAwayAudio.Play();
+
+        yield return WaitWhileBrightnessZero(3.0f, result => completed = result);
+        if (!completed)
         {
-            enemyAwayAudio.Play();
+            RestoreEnemyState();
+            yield break;
         }
 
-        // ★明るさが0のままか監視しながら 3.0秒 待機
-        timer = 0f;
-        while (timer < 3.0f)
-        {
-            if (brightnessSlider != null && brightnessSlider.value > 0.001f)
-            {
-                RestoreEnemyState();
-                yield break;
-            }
-            timer += Time.deltaTime;
-            yield return null;
-        }
-
-        // 4. セリフ「……いなくなった……？」
+        // 4. 完全撃退
         ShowSubtitle("「……いなくなった……？」", 3.5f);
 
-        // 5. 完全撃退完了！
         isEnemyEventSolved = true;
         isBeingChased = false;
-        
-        // DefeatEnemy を呼ぶ前に一瞬アクティブにして撃退処理を通す
+
+        // DefeatEnemy を通すため一瞬アクティブにしてから完全に消去
         if (invisibleEnemy != null)
         {
             invisibleEnemy.gameObject.SetActive(true);
             invisibleEnemy.DefeatEnemy();
-            invisibleEnemy.gameObject.SetActive(false); // 完全に消去
+            invisibleEnemy.gameObject.SetActive(false);
         }
 
-        if (letterRo != null)
-        {
-            letterRo.SetActive(true);
-        }
+        if (letterRo != null) letterRo.SetActive(true);
 
         enemySequenceCoroutine = null;
         Debug.Log("【見えない敵イベントクリア】完全撃退し、『ろ』が出現！");
     }
 
-    // ★途中で明るさを戻した時に敵を再出現・再有効化する処理
-    private void RestoreEnemyState()
+    /// <summary>
+    /// 明るさが0のまま duration 秒経過したら true、
+    /// 途中で明るさが戻されたら false を onFinished に渡す。
+    /// </summary>
+    IEnumerator WaitWhileBrightnessZero(float duration, System.Action<bool> onFinished)
+    {
+        float timer = 0f;
+        while (timer < duration)
+        {
+            if (brightnessSlider != null && brightnessSlider.value > SliderZeroThreshold)
+            {
+                onFinished(false);
+                yield break;
+            }
+            timer += Time.deltaTime;
+            yield return null;
+        }
+        onFinished(true);
+    }
+
+    /// <summary>途中で明るさを戻した時に敵を再出現させる</summary>
+    void RestoreEnemyState()
     {
         if (invisibleEnemy != null)
         {
@@ -250,20 +372,7 @@ public class NoisePuzzleManager : MonoBehaviour
         }
     }
 
-    // ★途中で明るさを戻した時にコライダーを再有効化する関数
-    private void RestoreEnemyCollider()
-    {
-        if (invisibleEnemy != null)
-        {
-            Collider enemyCollider = invisibleEnemy.GetComponent<Collider>();
-            if (enemyCollider != null)
-            {
-                enemyCollider.enabled = true;
-            }
-        }
-    }
-
-    // ★途中で明るさを戻された時の追跡再開処理
+    /// <summary>撃退演出の途中で明るさを戻された時の追跡再開処理</summary>
     void CancelEnemySequence()
     {
         if (enemySequenceCoroutine != null)
@@ -287,71 +396,9 @@ public class NoisePuzzleManager : MonoBehaviour
         Debug.Log("【演出キャンセル】明るさが戻されたため、敵が追跡を再開します！");
     }
 
-    IEnumerator FadeInNoiseSequence()
-    {
-        isIncreasing = true;
-        float timer = 0f;
-
-        bool flag5 = false;
-        bool flag15 = false;
-        bool flag30 = false;
-
-        while (timer < fadeDuration && !isSolved)
-        {
-            timer += Time.deltaTime;
-
-            float progress = Mathf.Clamp01(timer / fadeDuration);
-
-            if (noiseAudio != null)
-            {
-                noiseAudio.volume = progress * maxVolume;
-
-                if (timer > 30.0f)
-                {
-                    noiseAudio.pitch = 1.0f + ((timer - 30.0f) / 15.0f) * 0.3f;
-                }
-            }
-
-            if (!isSolved)
-            {
-                if (timer >= 5.0f && !flag5)
-                {
-                    flag5 = true;
-                    ShowSubtitle("「……なんだこの音。」", 4.0f);
-                }
-                else if (timer >= 15.0f && !flag15)
-                {
-                    flag15 = true;
-                    ShowSubtitle("「うるさい……」", 4.0f);
-                }
-                else if (timer >= 30.0f && !flag30)
-                {
-                    flag30 = true;
-                    ShowSubtitle("「うるさいうるさい……もうやめてくれ……！！！」", 5.0f);
-                }
-            }
-
-            yield return null;
-        }
-
-        if (!isSolved)
-        {
-            if (noiseAudio != null) noiseAudio.volume = maxVolume;
-
-            ShowSubtitle("「もう、ダメだ……」", 3.0f);
-            yield return new WaitForSeconds(2.0f);
-
-            GameOver();
-        }
-    }
-
-    void ShowSubtitle(string text, float duration)
-    {
-        if (SubtitleManager.Instance != null)
-        {
-            SubtitleManager.Instance.ShowSubtitle(text, duration);
-        }
-    }
+    // ------------------------------------------------------------
+    // ゲームオーバー・リスタート
+    // ------------------------------------------------------------
 
     void GameOver()
     {
@@ -366,86 +413,23 @@ public class NoisePuzzleManager : MonoBehaviour
         if (END1Panel != null)
         {
             END1Panel.SetActive(true);
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
+            CursorUtil.SetLocked(false);
         }
 
-        if (mouseLook != null) mouseLook.isChatActive = true;
-        if (playerMovement != null) playerMovement.canMove = false;
+        SetPlayerInputBlocked(true);
     }
 
     public void RestartScene()
     {
         LetterItem.totalCollected = 0;
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorUtil.SetLocked(true);
 
-        Scene currentScene = SceneManager.GetActiveScene();
-        SceneManager.LoadScene(currentScene.name);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
-    public void SolvePuzzle()
+    void ShowSubtitle(string text, float duration)
     {
-        isSolved = true;
-
-        if (noiseCoroutine != null)
-        {
-            StopCoroutine(noiseCoroutine);
-        }
-
-        if (tvControllers != null)
-        {
-            foreach (TVController tv in tvControllers)
-            {
-                if (tv != null)
-                {
-                    tv.TurnOffTVByManager();
-                }
-            }
-        }
-
-        if (noiseAudio != null)
-        {
-            noiseAudio.Stop();
-            noiseAudio.pitch = 1.0f;
-        }
-        if (letterKi != null) letterKi.SetActive(true);
-
-        if (PuzzleManager.Instance != null)
-        {
-            PuzzleManager.Instance.MarkAsCleared("Puzzle_TV"); 
-        }
-
-        if (SubtitleManager.Instance != null)
-        {
-            SubtitleManager.Instance.ShowSubtitle("「静かになった…………。」", 5.0f);
-        }
-
-        if (pausePanel != null && pausePanel.activeSelf)
-        {
-            pausePanel.SetActive(false);
-            if (mouseLook != null) mouseLook.isChatActive = false;
-            if (playerMovement != null) playerMovement.canMove = true;
-
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-
-        Debug.Log("【謎解き完了】ノイズ停止＆『き』が出現！");
-    }
-
-    public void OnVolumeChanged(float value)
-    {
-        AudioListener.volume = value;
-
-        if (isIncreasing && !isSolved && !hasNoticedVolumeDown)
-        {
-            if (value < 0.95f && value > 0.001f)
-            {
-                hasNoticedVolumeDown = true;
-                ShowSubtitle("「……あれ？ 今、音が……」", 4.0f);
-            }
-        }
+        SubtitleManager.Show(text, duration);
     }
 }

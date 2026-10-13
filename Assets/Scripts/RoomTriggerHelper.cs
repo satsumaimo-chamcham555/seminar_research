@@ -3,13 +3,12 @@ using UnityEngine;
 public class RoomTriggerHelper : MonoBehaviour
 {
     // Inspectorで "SpawnNext" または "CloseDoor" を指定
-    public string triggerType; 
-    
+    public string triggerType;
+
     private FactoryRoom parentRoom;
 
     void Start()
     {
-        // 親にある FactoryRoom を取得
         parentRoom = GetComponentInParent<FactoryRoom>();
     }
 

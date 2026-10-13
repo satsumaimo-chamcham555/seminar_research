@@ -4,8 +4,8 @@ public class FactoryRoom : MonoBehaviour
 {
     [Header("参照設定")]
     public GameObject factoryPrefab;    // 生成するファクトリーのプレハブ
-    public Transform nextSpawnPoint;     // 次の部屋を出す位置
-    public Animator doorAnimator;        // 閉じるドアのAnimator
+    public Transform nextSpawnPoint;    // 次の部屋を出す位置
+    public Animator doorAnimator;       // 閉じるドアのAnimator
 
     [Header("トリガーの設定タグ")]
     public string playerTag = "Player";
@@ -16,7 +16,6 @@ public class FactoryRoom : MonoBehaviour
     private bool hasSpawnedNext = false;
     private bool isDoorClosed = false;
 
-    // トリガー侵入時の判定
     public void OnChildTriggerEnter(string triggerType, Collider other)
     {
         if (!other.CompareTag(playerTag)) return;
@@ -35,15 +34,14 @@ public class FactoryRoom : MonoBehaviour
     {
         hasSpawnedNext = true;
 
-        if (factoryPrefab != null && nextSpawnPoint != null)
+        if (factoryPrefab == null || nextSpawnPoint == null) return;
+
+        GameObject nextRoom = Instantiate(factoryPrefab, nextSpawnPoint.position, nextSpawnPoint.rotation);
+
+        FactoryRoom nextRoomScript = nextRoom.GetComponent<FactoryRoom>();
+        if (nextRoomScript != null)
         {
-            GameObject nextRoomObj = Instantiate(factoryPrefab, nextSpawnPoint.position, nextSpawnPoint.rotation);
-            
-            FactoryRoom nextRoomScript = nextRoomObj.GetComponent<FactoryRoom>();
-            if (nextRoomScript != null)
-            {
-                nextRoomScript.previousRoom = this.gameObject;
-            }
+            nextRoomScript.previousRoom = gameObject;
         }
     }
 
@@ -56,7 +54,7 @@ public class FactoryRoom : MonoBehaviour
             doorAnimator.SetTrigger("Close");
         }
 
-        // 2つ前の部屋（親）が存在すれば1秒後に消去
+        // 1つ前の部屋が存在すれば1秒後に消去
         if (previousRoom != null)
         {
             Destroy(previousRoom, 1.0f);

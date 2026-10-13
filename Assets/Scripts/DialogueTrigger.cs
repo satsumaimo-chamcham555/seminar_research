@@ -11,34 +11,33 @@ public class DialogueTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
-        {
-            PlayerMovement movement = other.GetComponent<PlayerMovement>();
-            if (movement != null)
-            {
-                movement.isInSlowZone = true; // スローゾーンに入ったフラグを立てる
-            }
+        if (!other.CompareTag("Player")) return;
 
-            if (!hasTriggered || !triggerOnce)
+        SetSlowZone(other, true); // スローゾーンに入ったフラグを立てる
+
+        if (!hasTriggered || !triggerOnce)
+        {
+            // SubtitleManager が存在する時だけ「発動済み」にする
+            if (SubtitleManager.Show(message, displayDuration))
             {
-                if (SubtitleManager.Instance != null)
-                {
-                    SubtitleManager.Instance.ShowSubtitle(message, displayDuration);
-                    hasTriggered = true;
-                }
+                hasTriggered = true;
             }
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (other.CompareTag("Player"))
+        if (!other.CompareTag("Player")) return;
+
+        SetSlowZone(other, false); // スローゾーンから出たら通常状態に戻す
+    }
+
+    private void SetSlowZone(Collider player, bool value)
+    {
+        PlayerMovement movement = player.GetComponent<PlayerMovement>();
+        if (movement != null)
         {
-            PlayerMovement movement = other.GetComponent<PlayerMovement>();
-            if (movement != null)
-            {
-                movement.isInSlowZone = false; // スローゾーンから出たら通常状態に戻す
-            }
+            movement.isInSlowZone = value;
         }
     }
 }

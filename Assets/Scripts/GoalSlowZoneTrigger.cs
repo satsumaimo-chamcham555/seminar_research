@@ -12,26 +12,24 @@ public class GoalSlowZoneTrigger : MonoBehaviour
     private void OnTriggerEnter(Collider other)
     {
         if (hasTriggered && triggerOnce) return;
+        if (!other.CompareTag("Player")) return;
 
-        if (other.CompareTag("Player"))
+        // プレイヤーのスロー状態を完全に解除
+        PlayerMovement movement = other.GetComponent<PlayerMovement>();
+        if (movement != null)
         {
-            // プレイヤーのスロー状態を完全に解除する
-            PlayerMovement movement = other.GetComponent<PlayerMovement>();
-            if (movement != null)
-            {
-                movement.isInSlowZone = false;
-            }
+            movement.isInSlowZone = false;
+        }
 
-            if (PuzzleManager.Instance != null)
-            {
-                PuzzleManager.Instance.MarkAsCleared("Puzzle_SlowZone");
-            }
-            // ゴールセリフを表示
-            if (SubtitleManager.Instance != null)
-            {
-                SubtitleManager.Instance.ShowSubtitle(message, displayDuration);
-                hasTriggered = true;
-            }
+        if (PuzzleManager.Instance != null)
+        {
+            PuzzleManager.Instance.MarkAsCleared("Puzzle_SlowZone");
+        }
+
+        // セリフ表示（SubtitleManager が存在する時だけ「発動済み」にする）
+        if (SubtitleManager.Show(message, displayDuration))
+        {
+            hasTriggered = true;
         }
     }
 }

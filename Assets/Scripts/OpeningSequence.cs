@@ -27,8 +27,11 @@ public class OpeningSequence : MonoBehaviour
     public string openingText = "「……ここ、どこだ？」";
     public float textDisplayDuration = 3.5f;
 
+    private const float BlurredFocusDistance = 0.1f;
+    private const float NormalFocusDistance = 20.0f;
+
     private DepthOfField dofComponent;
-    private static bool isFirstPlay = true;
+    private static bool isFirstPlay = true; // シーンをリロードしても保持される
 
     void Start()
     {
@@ -37,39 +40,33 @@ public class OpeningSequence : MonoBehaviour
             postProcessVolume.profile.TryGetSettings(out dofComponent);
         }
 
-        // ★2回目以降は即座にスキップして処理を終了する（一番上に移動）
+        // 2回目以降（リトライ時）はスキップ
         if (!isFirstPlay)
         {
             SkipOpening();
             return;
         }
 
-        // 初回プレイ時のフラグ更新
         isFirstPlay = false;
+        PrepareFirstPlay();
+    }
 
-        // --- 以下、初回のみ実行される初期化処理 ---
-        if (openingAudio != null)
-        {
-            openingAudio.Stop();
-        }
+    // ------------------------------------------------------------
+    // 初回プレイ
+    // ------------------------------------------------------------
+
+    /// <summary>初回のみ：操作を止めて暗転し、操作説明を表示する</summary>
+    void PrepareFirstPlay()
+    {
+        if (openingAudio != null) openingAudio.Stop();
 
         if (playerMovement != null) playerMovement.canMove = false;
         if (mouseLook != null) mouseLook.canLook = false;
 
-        if (fadeOverlay != null)
-        {
-            Color initialColor = fadeOverlay.color;
-            initialColor.a = 1f;
-            fadeOverlay.color = initialColor;
-        }
+        SetFadeAlpha(1f);
+        CursorUtil.SetLocked(false);
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
-
-        if (tutorialPanel != null)
-        {
-            tutorialPanel.SetActive(true);
-        }
+        if (tutorialPanel != null) tutorialPanel.SetActive(true);
 
         if (tutorialCloseButton != null)
         {
@@ -78,138 +75,106 @@ public class OpeningSequence : MonoBehaviour
         }
     }
 
-    // ★ボタンが押されたら呼ばれる関数
+    /// <summary>「ゲームを開始する」ボタン</summary>
     private void OnStartButtonClicked()
     {
-        if (tutorialPanel != null)
-        {
-            tutorialPanel.SetActive(false);
-        }
+        if (tutorialPanel != null) tutorialPanel.SetActive(false);
 
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorUtil.SetLocked(true);
 
-        if (openingAudio != null)
-        {
-            openingAudio.Play();
-        }
+        if (openingAudio != null) openingAudio.Play();
 
         StartCoroutine(StartOpeningSequence());
     }
 
     IEnumerator StartOpeningSequence()
     {
-        if (fadeOverlay != null)
-        {
-            Color initialColor = fadeOverlay.color;
-            initialColor.a = 1f;
-            fadeOverlay.color = initialColor;
-        }
+        SetFadeAlpha(1f);
 
         if (dofComponent != null)
         {
             dofComponent.focusDistance.overrideState = true;
-            dofComponent.focusDistance.value = 0.1f;
+            dofComponent.focusDistance.value = BlurredFocusDistance;
 
             dofComponent.kernelSize.overrideState = true;
             dofComponent.kernelSize.value = KernelSize.VeryLarge;
         }
 
+        // フェードイン＋ピント合わせ
         float timer = 0f;
         while (timer < fadeDuration)
         {
             timer += Time.deltaTime;
             float progress = timer / fadeDuration;
 
-            if (fadeOverlay != null)
-            {
-                Color c = fadeOverlay.color;
-                c.a = Mathf.Lerp(1f, 0f, progress);
-                fadeOverlay.color = c;
-            }
+            SetFadeAlpha(Mathf.Lerp(1f, 0f, progress));
 
             if (dofComponent != null)
             {
-                dofComponent.focusDistance.value = Mathf.Lerp(0.1f, 20.0f, progress);
+                dofComponent.focusDistance.value = Mathf.Lerp(BlurredFocusDistance, NormalFocusDistance, progress);
             }
 
             yield return null;
         }
 
-        if (fadeOverlay != null)
-        {
-            Color finalColor = fadeOverlay.color;
-            finalColor.a = 0f;
-            fadeOverlay.color = finalColor;
-        }
-        if (dofComponent != null)
-        {
-            dofComponent.focusDistance.value = 20.0f;
-            dofComponent.kernelSize.value = KernelSize.Medium;
-        }
+        SetFadeAlpha(0f);
+        ApplyNormalDepthOfField();
 
-        if (SubtitleManager.Instance != null)
-        {
-            SubtitleManager.Instance.ShowSubtitle(openingText, textDisplayDuration);
-        }
+        SubtitleManager.Show(openingText, textDisplayDuration);
 
         yield return new WaitForSeconds(textDisplayDuration);
 
-        // スムーズに操作解禁
         EnablePlayerControl();
     }
 
-    // ★2回目以降（リトライ時）に呼ばれるスキップ処理
+    // ------------------------------------------------------------
+    // 2回目以降
+    // ------------------------------------------------------------
+
     void SkipOpening()
     {
-        // チュートリアルUIを非表示
-        if (tutorialPanel != null)
-        {
-            tutorialPanel.SetActive(false);
-        }
+        if (tutorialPanel != null) tutorialPanel.SetActive(false);
 
-        // フェード暗転を即座に透明（解除）にする
-        if (fadeOverlay != null)
-        {
-            Color c = fadeOverlay.color;
-            c.a = 0f;
-            fadeOverlay.color = c;
-        }
+        SetFadeAlpha(0f);
+        ApplyNormalDepthOfField();
 
-        // 被写界深度（画面のボカシ）を通常状態に戻す
-        if (dofComponent != null)
-        {
-            dofComponent.focusDistance.overrideState = true;
-            dofComponent.focusDistance.value = 20.0f;
-            dofComponent.kernelSize.value = KernelSize.Medium;
-        }
+        // オープニング音は流さず停止（BGM等が必要ならここでPlay）
+        if (openingAudio != null) openingAudio.Stop();
 
-        // オープニング音も流さず停止しておく（BGM等が必要な場合はここでPlay）
-        if (openingAudio != null)
-        {
-            openingAudio.Stop();
-        }
-
-        // 即座にプレイヤー操作を可能にする
         EnablePlayerControl();
 
         Debug.Log("【スキップ完了】2回目以降のためオープニングをスキップしました。");
     }
 
-    // プレイヤーの操作許可・カーソルロックを一括で行う共通処理
+    // ------------------------------------------------------------
+    // 共通処理
+    // ------------------------------------------------------------
+
+    void SetFadeAlpha(float alpha)
+    {
+        if (fadeOverlay == null) return;
+
+        Color c = fadeOverlay.color;
+        c.a = alpha;
+        fadeOverlay.color = c;
+    }
+
+    /// <summary>被写界深度（画面のボカシ）を通常状態にする</summary>
+    void ApplyNormalDepthOfField()
+    {
+        if (dofComponent == null) return;
+
+        dofComponent.focusDistance.overrideState = true;
+        dofComponent.focusDistance.value = NormalFocusDistance;
+        dofComponent.kernelSize.value = KernelSize.Medium;
+    }
+
+    /// <summary>プレイヤーの操作許可・カーソルロックを一括で行う</summary>
     private void EnablePlayerControl()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        CursorUtil.SetLocked(true);
 
-        if (mouseLook != null)
-        {
-            mouseLook.canLook = true;
-            mouseLook.LockCursor(true);
-        }
-        if (playerMovement != null)
-        {
-            playerMovement.canMove = true;
-        }
+        if (mouseLook != null) mouseLook.canLook = true;
+        if (playerMovement != null) playerMovement.canMove = true;
     }
 }

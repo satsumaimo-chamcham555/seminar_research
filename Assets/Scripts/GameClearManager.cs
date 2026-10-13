@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -25,14 +26,23 @@ public class GameClearManager : MonoBehaviour
     public float fadeSpeed = 0.5f;
 
     [Tooltip("正解してから次のチャット欄が自動で開くまでの時間（秒）")]
-    public float reopenDelay = 1.0f; // ★ Inspectorから変更できます（初期値：1秒）
+    public float reopenDelay = 1.0f;
+
+    private static readonly HashSet<string> CorrectAnswers = new HashSet<string>
+    {
+        "おきろ", "オキロ", "okiro", "OKIRO",
+        "おきる", "オキル", "okiru", "OKIRU",
+    };
+
+    private const float InputBlockDuration = 0.2f; // チャットを開いた直後の入力無視時間
+    private const float InitialFallSpeed = 5.0f;
+    private const float FallAcceleration = 30.0f;
+    private const float FallDuration = 1.5f;
 
     private int inputCount = 0;
     private bool isClearing = false;
     private bool isChatOpen = false;
-
     private float chatOpenTimer = 0f;
-    private const float INPUT_BLOCK_DURATION = 0.2f;
 
     void Start()
     {
@@ -46,69 +56,59 @@ public class GameClearManager : MonoBehaviour
     {
         if (isClearing) return;
 
-        // 1. チャットが開いている時
         if (isChatOpen)
         {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-
-            if (chatOpenTimer > 0)
-            {
-                chatOpenTimer -= Time.unscaledDeltaTime;
-                return;
-            }
-
-            // Escキーで手動キャンセルして閉じる
-            if (Input.GetKeyDown(KeyCode.Escape))
-            {
-                CloseChat();
-                return;
-            }
-
-            // Enterキーで送信して閉じる
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-            {
-                SubmitAndClose();
-            }
+            UpdateChatOpen();
             return;
         }
 
-        // 2. チャットが閉じている時：Enterキーで開く
-        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+        // チャットが閉じている時：Enterキーで開く
+        if (IsSubmitKeyDown())
         {
             OpenChat();
         }
     }
 
-    private void SubmitAndClose()
+    void UpdateChatOpen()
     {
-        string inputText = "";
-        if (chatInputField != null)
+        CursorUtil.SetLocked(false);
+
+        if (chatOpenTimer > 0)
         {
-            inputText = chatInputField.text.Trim();
+            chatOpenTimer -= Time.unscaledDeltaTime;
+            return;
         }
 
-        // 間違い・正解に関わらず一旦閉じる
-        CloseChat();
-
-        // 正解判定
-        if (inputText == "おきろ" || inputText == "オキロ" || inputText == "okiro" || inputText == "OKIRO" || inputText == "おきる" || inputText == "オキル" || inputText == "okiru" || inputText == "OKIRU")
+        // Escキーで手動キャンセル
+        if (Input.GetKeyDown(KeyCode.Escape))
         {
-            inputCount++;
-            ProcessPhase(inputCount);
+            CloseChat();
+            return;
+        }
+
+        // Enterキーで送信
+        if (IsSubmitKeyDown())
+        {
+            SubmitAndClose();
         }
     }
+
+    static bool IsSubmitKeyDown()
+    {
+        return Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+    }
+
+    // ------------------------------------------------------------
+    // チャットの開閉
+    // ------------------------------------------------------------
 
     public void OpenChat()
     {
         isChatOpen = true;
-        chatOpenTimer = INPUT_BLOCK_DURATION;
+        chatOpenTimer = InputBlockDuration;
 
-        if (mouseLook != null) mouseLook.isChatActive = true;
-        if (playerMovement != null) playerMovement.canMove = false;
-
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        SetPlayerInputBlocked(true);
+        CursorUtil.SetLocked(false);
 
         if (chatInputField != null)
         {
@@ -129,42 +129,53 @@ public class GameClearManager : MonoBehaviour
             chatInputField.gameObject.SetActive(false);
         }
 
-        if (mouseLook != null) mouseLook.isChatActive = false;
-        if (playerMovement != null) playerMovement.canMove = true;
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        SetPlayerInputBlocked(false);
+        CursorUtil.SetLocked(true);
     }
+
+    void SetPlayerInputBlocked(bool blocked)
+    {
+        if (mouseLook != null) mouseLook.isChatActive = blocked;
+        if (playerMovement != null) playerMovement.canMove = !blocked;
+    }
+
+    void SubmitAndClose()
+    {
+        string inputText = chatInputField != null ? chatInputField.text.Trim() : "";
+
+        // 間違い・正解に関わらず一旦閉じる
+        CloseChat();
+
+        if (CorrectAnswers.Contains(inputText))
+        {
+            inputCount++;
+            ProcessPhase(inputCount);
+        }
+    }
+
+    // ------------------------------------------------------------
+    // フェーズ進行
+    // ------------------------------------------------------------
 
     void ProcessPhase(int count)
     {
         switch (count)
         {
-            case 1:
-                ShowSubtitle("「……おきろ」", 3.0f);
-                HideObjects(propsObjects);
-                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
-                break;
-
-            case 2:
-                ShowSubtitle("「……おきろ！」", 3.0f);
-                HideObjects(pillarObjects);
-                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
-                break;
-
-            case 3:
-                ShowSubtitle("「おきろ！！！！」", 3.0f);
-                HideObjects(wallRoofObjects);
-                StartCoroutine(ReopenChatAfterDelay(reopenDelay));
-                break;
-
-            case 4:
-                StartCoroutine(FinalPhaseSequence());
-                break;
+            case 1: AdvanceStage("「……おきろ」",       propsObjects);    break;
+            case 2: AdvanceStage("「……おきろ！」",     pillarObjects);   break;
+            case 3: AdvanceStage("「おきろ！！！！」", wallRoofObjects); break;
+            case 4: StartCoroutine(FinalPhaseSequence()); break;
         }
     }
 
-    // 少し時間を置いてからチャットを開くコルーチン
+    /// <summary>セリフを出し、対象を消して、少し後にチャットを開き直す</summary>
+    void AdvanceStage(string subtitle, GameObject[] objectsToHide)
+    {
+        SubtitleManager.Show(subtitle, 3.0f);
+        HideObjects(objectsToHide);
+        StartCoroutine(ReopenChatAfterDelay(reopenDelay));
+    }
+
     IEnumerator ReopenChatAfterDelay(float delay)
     {
         yield return new WaitForSeconds(delay);
@@ -174,14 +185,19 @@ public class GameClearManager : MonoBehaviour
         }
     }
 
-    void HideObjects(GameObject[] targetArray)
+    void HideObjects(GameObject[] targets)
     {
-        if (targetArray == null) return;
-        foreach (GameObject obj in targetArray)
+        if (targets == null) return;
+
+        foreach (GameObject obj in targets)
         {
             if (obj != null) obj.SetActive(false);
         }
     }
+
+    // ------------------------------------------------------------
+    // 最終フェーズ（床が消えて落下 → ホワイトアウト → END3）
+    // ------------------------------------------------------------
 
     IEnumerator FinalPhaseSequence()
     {
@@ -195,78 +211,75 @@ public class GameClearManager : MonoBehaviour
 
         HideObjects(floorObjects);
 
-        Transform targetTransform = transform;
-        if (playerMovement != null) targetTransform = playerMovement.transform;
-        else if (playerController != null) targetTransform = playerController.transform;
-
+        Transform targetTransform = GetFallTarget();
         Transform cameraTransform = mouseLook != null ? mouseLook.transform : null;
 
-        ShowSubtitle("「おきろ！！！！！！！！！」", 4.0f);
+        SubtitleManager.Show("「おきろ！！！！！！！！！」", 4.0f);
 
-        float fallSpeed = 5.0f;
+        float fallSpeed = InitialFallSpeed;
+
+        // 落下のみ
         float timer = 0f;
-
-        while (timer < 1.5f)
+        while (timer < FallDuration)
         {
             timer += Time.deltaTime;
-
-            fallSpeed += 30.0f * Time.deltaTime;
-            Vector3 fallVector = Vector3.down * fallSpeed * Time.deltaTime;
-
-            if (targetTransform != null) targetTransform.position += fallVector;
-            if (cameraTransform != null && cameraTransform != targetTransform && !cameraTransform.IsChildOf(targetTransform))
-            {
-                cameraTransform.position += fallVector;
-            }
-
+            fallSpeed = StepFall(fallSpeed, targetTransform, cameraTransform);
             yield return null;
         }
 
-        ShowSubtitle("「……夢から、おきるんだ。」", 4.0f);
+        SubtitleManager.Show("「……夢から、おきるんだ。」", 4.0f);
 
+        // 落下しながらホワイトアウト
         float alpha = 0f;
         while (alpha < 1f)
         {
             alpha += Time.deltaTime * fadeSpeed;
-            if (whiteoutImage != null)
-            {
-                Color color = whiteoutImage.color;
-                color.a = alpha;
-                whiteoutImage.color = color;
-            }
+            SetWhiteoutAlpha(alpha);
 
-            fallSpeed += 30.0f * Time.deltaTime;
-            Vector3 fallVector = Vector3.down * fallSpeed * Time.deltaTime;
-
-            if (targetTransform != null) targetTransform.position += fallVector;
-            if (cameraTransform != null && cameraTransform != targetTransform && !cameraTransform.IsChildOf(targetTransform))
-            {
-                cameraTransform.position += fallVector;
-            }
-
+            fallSpeed = StepFall(fallSpeed, targetTransform, cameraTransform);
             yield return null;
         }
 
         yield return new WaitForSeconds(1.0f);
 
-        if (END3Panel != null)
-        {
-            END3Panel.SetActive(true);
-        }
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        if (END3Panel != null) END3Panel.SetActive(true);
 
-        if (mouseLook != null) mouseLook.isChatActive = true;
-        if (playerMovement != null) playerMovement.canMove = false;
+        CursorUtil.SetLocked(false);
+        SetPlayerInputBlocked(true);
 
         Debug.Log("【ゲームクリア】現実へ目覚めました。");
     }
 
-    void ShowSubtitle(string text, float duration)
+    Transform GetFallTarget()
     {
-        if (SubtitleManager.Instance != null)
+        if (playerMovement != null) return playerMovement.transform;
+        if (playerController != null) return playerController.transform;
+        return transform;
+    }
+
+    /// <summary>1フレーム分だけ加速しながら落下させ、更新後の落下速度を返す</summary>
+    float StepFall(float fallSpeed, Transform target, Transform cameraTf)
+    {
+        fallSpeed += FallAcceleration * Time.deltaTime;
+        Vector3 fallVector = Vector3.down * fallSpeed * Time.deltaTime;
+
+        if (target != null) target.position += fallVector;
+
+        // カメラがプレイヤーの子でない場合のみ個別に落とす
+        if (cameraTf != null && cameraTf != target && !cameraTf.IsChildOf(target))
         {
-            SubtitleManager.Instance.ShowSubtitle(text, duration);
+            cameraTf.position += fallVector;
         }
+
+        return fallSpeed;
+    }
+
+    void SetWhiteoutAlpha(float alpha)
+    {
+        if (whiteoutImage == null) return;
+
+        Color color = whiteoutImage.color;
+        color.a = alpha;
+        whiteoutImage.color = color;
     }
 }

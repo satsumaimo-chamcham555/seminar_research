@@ -14,12 +14,9 @@ public class NoiseTrigger : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("Player") && noiseManager != null)
         {
-            if (noiseManager != null)
-            {
-                noiseManager.StartNoiseSequence();
-            }
+            noiseManager.StartNoiseSequence();
         }
     }
 }

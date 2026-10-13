@@ -10,57 +10,57 @@ public class RandomPuzzleTrigger : MonoBehaviour
 
     void ActivateUniquePuzzle()
     {
-        int childCount = transform.childCount;
-        if (childCount == 0) return;
+        if (transform.childCount == 0) return;
 
-        List<GameObject> availablePuzzles = new List<GameObject>();
+        List<GameObject> availablePuzzles = CollectAvailablePuzzles();
 
-        for (int i = 0; i < childCount; i++)
+        if (availablePuzzles.Count == 0)
+        {
+            Debug.Log("【部屋の謎】全ての謎をクリアしたため、普通の部屋を配置します。");
+            return;
+        }
+
+        GameObject selected = availablePuzzles[Random.Range(0, availablePuzzles.Count)];
+        selected.SetActive(true);
+
+        AssignTvParent(selected);
+
+        Debug.Log($"【部屋の謎決定】未クリアの謎から『{selected.name}』を出しました。");
+    }
+
+    /// <summary>全ての子を一旦非表示にしつつ、未クリアの謎だけを返す</summary>
+    List<GameObject> CollectAvailablePuzzles()
+    {
+        var result = new List<GameObject>();
+
+        for (int i = 0; i < transform.childCount; i++)
         {
             GameObject child = transform.GetChild(i).gameObject;
             child.SetActive(false);
 
-            // まだクリアしていない謎だけをリストに追加
-            if (PuzzleManager.Instance != null)
+            bool isCleared = PuzzleManager.Instance != null && PuzzleManager.Instance.IsCleared(child.name);
+            if (!isCleared)
             {
-                if (!PuzzleManager.Instance.IsCleared(child.name))
-                {
-                    availablePuzzles.Add(child);
-                }
-            }
-            else
-            {
-                availablePuzzles.Add(child);
+                result.Add(child);
             }
         }
+        return result;
+    }
 
-        if (availablePuzzles.Count > 0)
+    /// <summary>TVの謎が選ばれた場合、NoisePuzzleManager に TV の親を教える</summary>
+    void AssignTvParent(GameObject selectedPuzzle)
+    {
+        NoisePuzzleManager noiseManager = FindObjectOfType<NoisePuzzleManager>();
+        if (noiseManager == null) return;
+
+        Transform tvs = selectedPuzzle.transform.Find("TVs");
+        if (tvs != null)
         {
-            int randomIndex = Random.Range(0, availablePuzzles.Count);
-            GameObject selectedPuzzle = availablePuzzles[randomIndex];
-
-            selectedPuzzle.SetActive(true);
-
-            // TVの謎が選ばれた場合の参照セット
-            NoisePuzzleManager noiseManager = FindObjectOfType<NoisePuzzleManager>();
-            if (noiseManager != null)
-            {
-                Transform tvsTransform = selectedPuzzle.transform.Find("TVs");
-                if (tvsTransform != null)
-                {
-                    noiseManager.tvParent = tvsTransform;
-                }
-                else if (selectedPuzzle.GetComponentInChildren<TVController>() != null)
-                {
-                    noiseManager.tvParent = selectedPuzzle.transform;
-                }
-            }
-
-            Debug.Log($"【部屋の謎決定】未クリアの謎から『{selectedPuzzle.name}』を出しました。");
+            noiseManager.tvParent = tvs;
         }
-        else
+        else if (selectedPuzzle.GetComponentInChildren<TVController>() != null)
         {
-            Debug.Log("【部屋の謎】全ての謎をクリアしたため、普通の部屋を配置します。");
+            noiseManager.tvParent = selectedPuzzle.transform;
         }
     }
 }
