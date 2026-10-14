@@ -1,19 +1,39 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class LetterItem : MonoBehaviour
 {
     [Header("文字の設定")]
     public string letterName = "お"; // Inspectorで各文字を設定 ("お", "き", "ろ")
 
+    [Header("扉の開閉アニメーション設定")]
+    [Tooltip("文字取得後に開かせる扉の Animator")]
+    public Animator doorAnimator;
+    [Tooltip("Animator の Trigger 名")]
+    public string openTriggerName = "Open";
+    public AudioSource doorAudioSource; //ドアが開く音用のAudioSource
+
     [Header("メタ演出用参照")]
     public GameClearManager gameClearManager;
-    public GameObject chatPanel; // （予備用）
+    public GameObject chatPanel;
+
+    [Header("取得時のイベント（任意）")]
+    public UnityEvent onCollected;
 
     // ゲーム全体で何文字拾ったかを記録する静的変数
     public static int totalCollected = 0;
 
-    // 3文字そろった時のセリフ（表示する文, 表示秒数, 次のセリフまでの待機秒数）
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneResetHook()
+    {
+        SceneManager.sceneLoaded += (scene, mode) =>
+        {
+            if (mode == LoadSceneMode.Single) totalCollected = 0;
+        };
+    }
+
     private struct Line
     {
         public string text;
@@ -51,10 +71,12 @@ public class LetterItem : MonoBehaviour
         if (totalCollected == 1)
         {
             SubtitleManager.Show($"「……『{letterName}』？ なんでこんなところに文字が……」", 5.0f);
+            OpenDoor(); // 1文字目の時も即開ける（セリフ完了後なら Invoke で遅延も可）
         }
         else if (totalCollected == 2)
         {
             SubtitleManager.Show($"「また文字だ……『{letterName}』……？」", 5.0f);
+            OpenDoor(); // 2文字目の時も開ける
         }
         else
         {
@@ -64,9 +86,24 @@ public class LetterItem : MonoBehaviour
         Debug.Log($"【文字取得】{letterName} を獲得しました！（通算: {totalCollected}文字目）");
 
         HideItem();
+
+        if (onCollected != null) onCollected.Invoke();
     }
 
-    /// <summary>拾った文字を見えなくし、再取得できないようにする</summary>
+    /// <summary>扉を開けるアニメーションを呼ぶ</summary>
+    private void OpenDoor()
+    {
+        if (doorAnimator != null && !string.IsNullOrEmpty(openTriggerName))
+        {
+            doorAnimator.SetTrigger(openTriggerName);
+        }
+        //ドアが開く音を再生！
+            if (doorAudioSource != null)
+            {
+                doorAudioSource.Play();
+            }
+    }
+
     private void HideItem()
     {
         Collider col = GetComponent<Collider>();
@@ -84,12 +121,12 @@ public class LetterItem : MonoBehaviour
             yield return new WaitForSeconds(line.wait);
         }
 
+        OpenDoor(); // 3文字集まってセリフをすべて言い終わったタイミングで扉を開ける！
         OpenChatOrFallback();
 
         gameObject.SetActive(false);
     }
 
-    /// <summary>GameClearManager のチャットを開く。見つからなければ直接プレイヤーを止める</summary>
     private void OpenChatOrFallback()
     {
         if (gameClearManager == null)
@@ -103,7 +140,6 @@ public class LetterItem : MonoBehaviour
             return;
         }
 
-        // フォールバック
         if (chatPanel != null) chatPanel.SetActive(true);
 
         MouseLook mouse = FindObjectOfType<MouseLook>();
