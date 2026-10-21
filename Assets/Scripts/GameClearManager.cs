@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class GameClearManager : MonoBehaviour
 {
@@ -281,5 +282,10 @@ public class GameClearManager : MonoBehaviour
         Color color = whiteoutImage.color;
         color.a = alpha;
         whiteoutImage.color = color;
+    }
+
+    public void LoadStage2()
+    {
+        SceneManager.LoadScene("Stage2"); // Stage2のシーン名
     }
 }

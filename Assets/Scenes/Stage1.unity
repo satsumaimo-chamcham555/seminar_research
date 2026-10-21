@@ -35290,7 +35290,7 @@ Transform:
   m_GameObject: {fileID: 1128366460}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -11.21, y: 1.01, z: -44.7}
+  m_LocalPosition: {x: -11.3, y: 1.01, z: -82.6}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -54462,9 +54462,9 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 924591304}
-        m_TargetAssemblyTypeName: NoisePuzzleManager, Assembly-CSharp
-        m_MethodName: RestartScene
+      - m_Target: {fileID: 924591305}
+        m_TargetAssemblyTypeName: GameClearManager, Assembly-CSharp
+        m_MethodName: LoadStage2
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
