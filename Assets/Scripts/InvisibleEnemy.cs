@@ -17,6 +17,12 @@ public class InvisibleEnemy : MonoBehaviour
     [Tooltip("退却時の移動スピード")]
     public float retreatSpeed = 3.5f;
 
+    [Header("ステージ2（ノイズ×エネミー）用")]
+    [Tooltip("ONなら撃退しても『ろ』の出現・Puzzle_Enemyのクリア登録をしない（Managerが自動でONにする）")]
+    public bool suppressRewards = false;
+    [Tooltip("retreatPoint 未設定時、プレイヤーと反対方向へこの距離だけ退却する")]
+    public float fallbackRetreatDistance = 40.0f;
+
     [Header("UI参照")]
     public GameObject END2Panel;       // ゲームオーバーパネル
 
@@ -42,6 +48,10 @@ public class InvisibleEnemy : MonoBehaviour
     private NoisePuzzleManager noiseManager;
     private float darkTimer = 0f;
     private float retreatStartDistance = 0f;
+    private Vector3 retreatTargetPos;
+
+    /// <summary>暗闇で退却しきって消えたか（ステージ2のクリア判定用）</summary>
+    public bool IsRetreatedAway { get; private set; }
     private float initialFootstepVolume = 1f;
 
     // アクティブな敵の一覧（MouseLook が毎フレーム FindObjectsOfType しなくて済むように）
@@ -71,8 +81,17 @@ public class InvisibleEnemy : MonoBehaviour
             footstepAudio.Stop();
         }
 
-        // Inspector で最初から追撃中にしている場合に備える
-        if (isChasing) phase = Phase.Chasing;
+        // ★追加：謎が始まる前事故を防ぐため、初期状態は Idle & 当たり判定OFF
+        if (!isChasing)
+        {
+            SetPhase(Phase.Idle);
+            SetColliderEnabled(false); // トリガーを踏むまでは触れてもゲームオーバーにならない
+        }
+        else
+        {
+            phase = Phase.Chasing;
+            SetColliderEnabled(true);
+        }
     }
 
     void Update()
@@ -181,19 +200,20 @@ public class InvisibleEnemy : MonoBehaviour
         }
     }
 
+    // InvisibleEnemy.cs の退却処理を修正
     void StartRetreat()
     {
-        if (retreatPoint == null)
-        {
-            Debug.LogWarning("【InvisibleEnemy】retreatPoint が未設定のため、その場で消滅します。");
-            ArriveAtRetreatPoint();
-            return;
-        }
+        // プレイヤーと反対方向へ 15m だけ退却ターゲットを設定
+        Vector3 away = transform.position - (targetPlayer != null ? targetPlayer.position : transform.position);
+        away.y = 0f;
+        away = away.sqrMagnitude > 0.001f ? away.normalized : Vector3.back;
+
+        // 固定地点ではなく「現在の敵の位置から15m後ろ」を目的地にする
+        retreatTargetPos = transform.position + away * 15.0f;
 
         SetPhase(Phase.Retreating);
-        retreatStartDistance = HorizontalDistanceTo(retreatPoint.position);
+        retreatStartDistance = HorizontalDistanceTo(retreatTargetPos);
 
-        // 遠ざかる足音（距離に応じて小さくなっていく）
         if (footstepAudio != null && !footstepAudio.isPlaying) footstepAudio.Play();
     }
 
@@ -206,10 +226,10 @@ public class InvisibleEnemy : MonoBehaviour
         }
 
         // 高さは自分のまま、水平方向だけ退却先へ
-        Vector3 target = new Vector3(retreatPoint.position.x, transform.position.y, retreatPoint.position.z);
+        Vector3 target = new Vector3(retreatTargetPos.x, transform.position.y, retreatTargetPos.z);
         transform.position = Vector3.MoveTowards(transform.position, target, retreatSpeed * Time.deltaTime);
 
-        float remaining = HorizontalDistanceTo(retreatPoint.position);
+        float remaining = HorizontalDistanceTo(retreatTargetPos);
 
         if (footstepAudio != null)
         {
@@ -226,6 +246,7 @@ public class InvisibleEnemy : MonoBehaviour
     /// <summary>退却先に到達：停止して撃退を確定し、非アクティブ化する</summary>
     void ArriveAtRetreatPoint()
     {
+        IsRetreatedAway = true;
         ApplyDefeat();
         gameObject.SetActive(false);
     }
@@ -326,18 +347,21 @@ public class InvisibleEnemy : MonoBehaviour
         JumpscareEnemy jumpscare = GetComponent<JumpscareEnemy>();
         if (jumpscare != null) jumpscare.enabled = false;
 
-        // 「ろ」を表示（敵側に未設定ならマネージャー側のものを表示）
-        if (letterRo != null) letterRo.SetActive(true);
-        else if (noiseManager != null) noiseManager.ShowLetterRo();
-
-        if (PuzzleManager.Instance != null)
+        if (!suppressRewards)
         {
-            PuzzleManager.Instance.MarkAsCleared("Puzzle_Enemy");
+            // 「ろ」を表示（敵側に未設定ならマネージャー側のものを表示）
+            if (letterRo != null) letterRo.SetActive(true);
+            else if (noiseManager != null) noiseManager.ShowLetterRo();
+
+            if (PuzzleManager.Instance != null)
+            {
+                PuzzleManager.Instance.MarkAsCleared("Puzzle_Enemy");
+            }
+
+            SubtitleManager.Show("「……いなくなった……？」", 4.0f);
+
+            Debug.Log("【3つ目の謎クリア】敵が消滅！");
         }
-
-        SubtitleManager.Show("「……いなくなった……？」", 4.0f);
-
-        Debug.Log("【3つ目の謎クリア】敵が消滅！");
     }
 
     // ------------------------------------------------------------
@@ -360,5 +384,27 @@ public class InvisibleEnemy : MonoBehaviour
             END2Panel.SetActive(true);
             CursorUtil.SetLocked(false);
         }
+        NoiseEnemyPuzzleManager stage2 = FindObjectOfType<NoiseEnemyPuzzleManager>();
+        if (stage2 != null) stage2.OnCaughtByEnemy(); // 敵に捕まった時もノイズを止める
+
+    }
+    /// <summary>外部（ノイズのゲームオーバー等）から敵を完全停止させる</summary>
+    public void HaltForGameOver()
+    {
+        SetPhase(Phase.Idle);
+        isLookedAt = false;
+        if (footstepAudio != null) footstepAudio.Stop();
+        SetColliderEnabled(false);
+    }
+    /// <summary>ステージ2などから強制的に追撃状態を開始させる</summary>
+    public void ForceStartChasing()
+    {
+        noiseManager = FindObjectOfType<NoisePuzzleManager>();
+        SetColliderEnabled(true);
+        SetPhase(Phase.Chasing);
+        isChasing = true;
+        isLookedAt = false;
+
+        SubtitleManager.Show("「……！ なんだ、この足音……こっちに来てる！？」", 4.0f);
     }
 }
