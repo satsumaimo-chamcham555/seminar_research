@@ -17,6 +17,9 @@ public class GameClearManager : MonoBehaviour
     public PlayerMovement playerMovement;
     public CharacterController playerController;
 
+    [Header("ステージ2エンディング（ステージ1では空のままでOK）")]
+    public Stage2EndingManager stage2Ending;
+
     [Header("フェーズ別消去オブジェクト群")]
     public GameObject[] propsObjects;    // 1回目：小物たち
     public GameObject[] pillarObjects;   // 2回目：柱
@@ -62,6 +65,9 @@ public class GameClearManager : MonoBehaviour
             UpdateChatOpen();
             return;
         }
+
+        // ステージ2エンディング中は、Enterでチャットを開かせない
+        if (stage2Ending != null && stage2Ending.IsChatLocked) return;
 
         // チャットが閉じている時：Enterキーで開く
         if (IsSubmitKeyDown())
@@ -146,6 +152,9 @@ public class GameClearManager : MonoBehaviour
 
         // 間違い・正解に関わらず一旦閉じる
         CloseChat();
+
+        // ステージ2：「でろ」ならエンディング側が処理する
+        if (stage2Ending != null && stage2Ending.TryHandleWord(inputText)) return;
 
         if (CorrectAnswers.Contains(inputText))
         {
